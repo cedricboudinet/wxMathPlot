@@ -5,7 +5,7 @@
 // Maintainer:      Davide Rondini
 // Contributors:    Jose Luis Blanco, Val Greene, Lionel Reynaud, Dave Nadler
 // Created:         21/07/2003
-// Last edit:       23/09/2024
+// Last edit:       25/12/2024
 // Copyright:       (c) David Schalig, Davide Rondini
 // Licence:         wxWindows licence
 /////////////////////////////////////////////////////////////////////////////
@@ -1594,6 +1594,15 @@ class WXDLLIMPEXP_MATHPLOT mpFXYVector: public mpFXY
     {
       return m_maxY;
     }
+
+  private:
+    /** Initialize the limits for the first point
+     */
+    void First_Point(double x, double y);
+
+    /** Compute the limits when we add new point
+     */
+    void Check_Limit(double val, double *min, double *max, double *last, double *delta);
 
   DECLARE_DYNAMIC_CLASS(mpFXYVector)
 };
