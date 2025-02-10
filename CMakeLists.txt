@@ -46,7 +46,7 @@ set_target_properties(MathPlotConfigDemo PROPERTIES VS_DEBUGGER_ENVIRONMENT "${M
 
 #CPack
 
-set(CPACK_PACKAGE_NAME "libwxmatplot")
+set(CPACK_PACKAGE_NAME "libwxmathplot")
 set(CPACK_PACKAGE_DESCRIPTION "wxMathPlot is a framework for mathematical plotting in wxWidgets.")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "wxMathPlot")
 set(CPACK_PACKAGE_VENDOR "wxMathPlot")
