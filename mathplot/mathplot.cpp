@@ -136,6 +136,7 @@ static void FillI18NString()
   Popup_string[index][0]   = _("Toggle fullscreen");
   Popup_string[index++][1] = _("Toggle fullscreen.");
 
+  Help_string.resize(0); //help string is shared among all plots
   Help_string.Add(_("wxMathPlot help"));
   Help_string.Add(_("Supported Mouse commands:"));
   Help_string.Add(_(" - Left button down +"));
