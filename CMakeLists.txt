@@ -35,6 +35,11 @@ add_executable(MathPlotConfigDemo
 	)
 target_link_libraries(MathPlotConfigDemo wxmathplot_static ${wxWidgets_LIBRARIES})
 
+add_executable(demoMultiple
+	MathPlotDemo/demoMutliple.cpp
+	)
+target_link_libraries(demoMultiple wxmathplot_static ${wxWidgets_LIBRARIES})
+
 if(WIN32 AND MSVC)
 	set_target_properties(MathPlotDemo PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS")
 	set_target_properties(MathPlotConfigDemo PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS")
