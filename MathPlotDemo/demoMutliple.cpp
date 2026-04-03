@@ -77,9 +77,9 @@ MyFrame::MyFrame()
 		sPlot[i].Plot = new mpWindow( this, wxID_ANY, wxDefaultPosition, wxDefaultSize, 0 );
 		sPlot[i].Plot->SetMargins(10,10,30,10);
 		topsizer->Add( sPlot[i].Plot, 1, wxALL|wxEXPAND, 5 );
-		sPlot[i].AxisX = new mpScaleX(_("F"), mpALIGN_BOTTOM, true);
+		sPlot[i].AxisX = new mpScaleX(_("X"), mpALIGN_BOTTOM, true);
 		sPlot[i].Plot->AddLayer(sPlot[i].AxisX);
-		sPlot[i].AxisY = new mpScaleY(_("?"), mpALIGN_LEFT, true);
+		sPlot[i].AxisY = new mpScaleY(_("Y"), mpALIGN_LEFT, true);
 		sPlot[i].Plot->AddLayer(sPlot[i].AxisY);
 		sPlot[i].Vector = new mpFXYVector(_("Vector"), 0);
 		sPlot[i].Vector->SetContinuity(true);
@@ -92,12 +92,12 @@ MyFrame::MyFrame()
 	}
 	std::vector<double> X; std::vector<double> Y;
 	X = {0,1}; Y= {0, 1};
-	sPlot[0].Vector->SetData(X, Y);
+	sPlot[0].Vector->SetData(X, Y); sPlot[0].Vector->SetName("Y=X");
 	X = {0,1}; Y= {0, 1e308};
 	sPlot[1].Vector->SetData(X, Y);
-	X = {0,1}; Y= {0, 1e-308};
+	X = {0,1}; Y= {0, 1e-305};
 	sPlot[2].Vector->SetData(X, Y);
-	X = {0,1}; Y= {0, 1e-10};
+	X = {0,1}; Y= {0, 0};
 	sPlot[3].Vector->SetData(X, Y);
 	for(size_t i=0;i<4;i++)
 		sPlot[i].Plot->Fit();
