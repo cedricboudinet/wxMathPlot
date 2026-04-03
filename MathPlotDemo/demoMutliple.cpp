@@ -75,13 +75,6 @@ MyFrame::MyFrame()
 	for(size_t i=0;i<4;i++)
 	{
 		sPlot[i].Plot = new mpWindow( this, wxID_ANY, wxDefaultPosition, wxDefaultSize, 0 );
-		wxMenu * mnu = sPlot[i].Plot->GetPopupMenu();
-		mnu->Delete(mpID_LOAD_FILE);
-		mnu->Delete(mpID_TOGGLE_COORD);
-		mnu->Delete(mpID_TOGGLE_GRID);
-		mnu->Delete(mpID_FULLSCREEN);
-		mnu->Delete(mpID_SCREENSHOT);
-		mnu->Delete(mpID_LOCKASPECT);
 		sPlot[i].Plot->SetMargins(10,10,30,10);
 		topsizer->Add( sPlot[i].Plot, 1, wxALL|wxEXPAND, 5 );
 		sPlot[i].AxisX = new mpScaleX(_("F"), mpALIGN_BOTTOM, true);
