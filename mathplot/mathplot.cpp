@@ -207,7 +207,7 @@ bool DoubleToTimeStruct(double val, unsigned int timeConv, struct tm *timestruct
 
   if (when > 0)
   {
-    if (timeConv == mpX_LOCALTIME)
+    if (timeConv == MP_X_LOCALTIME)
     {
       *timestruct = *localtime(&when);
     }
@@ -2170,14 +2170,14 @@ mpScale::mpScale(const wxString &name, int flags, bool grids, mpLabelType labelT
   SetName(name);
   SetFont((wxFont const&)*wxSMALL_FONT);
   SetPen((wxPen const&)*wxGREY_PEN);
-  m_gridpen = wxPen(*wxLIGHT_GREY, 1, wxPENSTYLE_SOLID);
+  m_gridpen = wxPen(*wxLIGHT_GREY, 1, wxPENSTYLE_DOT);
   m_flags = flags;
   m_ticks = true;
   m_grids = grids;
   m_auto = true;
   m_axisRange.Set(-1, 1);
   m_labelType = labelType;
-  m_timeConv = mpX_RAWTIME;
+  m_timeConv = MP_X_RAWTIME;
   m_labelFormat = _T("");
   m_isLog = false;
   m_ZIndex = mpZIndex_AXIS;
@@ -2404,7 +2404,7 @@ int mpScaleX::GetOrigin(mpWindow &w)
     case mpALIGN_TOP:
     {
       if (m_drawOutsideMargins)
-        origin = X_BORDER_SEPARATION;
+        origin = MP_X_BORDER_SEPARATION;
       else
         origin = w.GetMarginTop() - w.GetExtraMargin();
       break;
@@ -2418,7 +2418,7 @@ int mpScaleX::GetOrigin(mpWindow &w)
     case mpALIGN_BOTTOM:
     {
       if (m_drawOutsideMargins)
-        origin = w.GetScreenY() - X_BORDER_SEPARATION;
+        origin = w.GetScreenY() - MP_X_BORDER_SEPARATION;
       else
         origin = w.GetScreenY() - w.GetMarginBottom() + w.GetExtraMargin() - 1;
       break;
@@ -2721,6 +2721,7 @@ void mpScaleY::DoPlot(wxDC &dc, mpWindow &w)
         }
       }
 
+      // Write ticks labels in s string : compute size
       s = FormatLabelValue(n);
 
       // Print ticks labels
@@ -2930,7 +2931,7 @@ void mpWindow::InitParameters()
   m_enableScrollBars = false;
   m_mouseLeftDownAction = mpMouseBoxZoom;
 
-  m_extraMargin = EXTRA_MARGIN;
+  m_extraMargin = MP_EXTRA_MARGIN;
   // Set all margins to 50
   SetMargins(50, 50, 50, 50);
 
@@ -3452,7 +3453,7 @@ void mpWindow::FitY(int yAxisID)
 
 void mpWindow::DoZoomXCalc(bool zoomIn, wxCoord staticXpixel)
 {
-  if (staticXpixel == ZOOM_AROUND_CENTER)
+  if (staticXpixel == MP_ZOOM_AROUND_CENTER)
   {
     // Zoom around center
     staticXpixel = (m_plotWidth / 2) + m_margin.left;
@@ -3475,7 +3476,7 @@ void mpWindow::DoZoomXCalc(bool zoomIn, wxCoord staticXpixel)
 
 void mpWindow::DoZoomYCalc(bool zoomIn, wxCoord staticYpixel, mpOptional_int yAxisID)
 {
-  if (staticYpixel == ZOOM_AROUND_CENTER)
+  if (staticYpixel == MP_ZOOM_AROUND_CENTER)
   {
     // Zoom around center
     staticYpixel = (m_plotHeight / 2) + m_margin.top;
@@ -3581,13 +3582,13 @@ void mpWindow::ZoomOutX()
 
 void mpWindow::ZoomInY(mpOptional_int yAxisID)
 {
-  DoZoomYCalc(true, ZOOM_AROUND_CENTER, yAxisID);
+  DoZoomYCalc(true, MP_ZOOM_AROUND_CENTER, yAxisID);
   UpdateAll();
 }
 
 void mpWindow::ZoomOutY(mpOptional_int yAxisID)
 {
-  DoZoomYCalc(false, ZOOM_AROUND_CENTER, yAxisID);
+  DoZoomYCalc(false, MP_ZOOM_AROUND_CENTER, yAxisID);
   UpdateAll();
 }
 
@@ -5531,7 +5532,7 @@ void mpCovarianceEllipse::RecalculateShape()
   double eigenVec0_x, eigenVec0_y;
   double eigenVec1_x, eigenVec1_y;
 
-  if (fabs(eigenVal0 - m_cov_00) > EPSILON)
+  if (fabs(eigenVal0 - m_cov_00) > MP_EPSILON)
   {
     double k1x = m_cov_01 / (eigenVal0 - m_cov_00);
     eigenVec0_y = 1;
@@ -5544,7 +5545,7 @@ void mpCovarianceEllipse::RecalculateShape()
     eigenVec0_y = eigenVec0_x * k1y;
   }
 
-  if (fabs(eigenVal1 - m_cov_00) > EPSILON)
+  if (fabs(eigenVal1 - m_cov_00) > MP_EPSILON)
   {
     double k2x = m_cov_01 / (eigenVal1 - m_cov_00);
     eigenVec1_y = 1;
