@@ -948,6 +948,98 @@ void mpInfoLegend::DoPlot(wxDC &dc, mpWindow &w)
 #endif
     buff_dc.SelectObject(wxNullBitmap);
   }
+
+  if(m_selectedSeries)
+  {
+    DrawDraggedSeries(dc, w, true);
+  }
+}
+
+void mpInfoLegend::DrawDraggedSeries(wxDC& dc, mpWindow &w, bool onPaint)
+{
+  // If called from OnPaint event, the background is already "clean", and we need to
+  // reset the stored rectangle and background bitmap
+  if(onPaint)
+  {
+    m_lastDragSeriesRect = wxRect();
+    delete m_lastDragSeriesBackgroundBmp;
+    m_lastDragSeriesBackgroundBmp = nullptr;
+  }
+
+  // New text rectangle at mouse
+  wxSize textSize = dc.GetTextExtent(m_selectedSeries->GetName());
+  wxRect newRect(w.GetMousePosition().x - 5, w.GetMousePosition().y - 18, textSize.x, textSize.y);
+
+  // We need to delete the last rectangle to avoid a tail, by using the stored background bmp.
+  // But instead of deleting the last rectangle and then drawing a new one in two separate steps (which
+  // cause flickering), create a larger rectangle that covers both the new and old one, fill it with
+  // clean background and the new rectangle, and then blit everything to the dc in one step.
+  wxRect unionRect = newRect;
+  if(!m_lastDragSeriesRect.IsEmpty())
+    unionRect.Union(m_lastDragSeriesRect);
+
+  // Create union bitmap and memory DC, filled with current screen content
+  wxBitmap unionBmp(unionRect.width, unionRect.height, -1);
+  wxMemoryDC unionDC(unionBmp);
+  unionDC.Blit(0, 0, unionRect.width, unionRect.height, &dc, unionRect.x, unionRect.y);
+
+  // Restore old drag background if it exists
+  if (m_lastDragSeriesBackgroundBmp)
+  {
+    unionDC.DrawBitmap(*m_lastDragSeriesBackgroundBmp, m_lastDragSeriesRect.x - unionRect.x, m_lastDragSeriesRect.y - unionRect.y, false);
+  }
+  else
+  {
+    m_lastDragSeriesBackgroundBmp = new wxBitmap(newRect.width, newRect.height, -1);
+  }
+
+  int newXInUnion = newRect.x - unionRect.x;
+  int newYInUnion = newRect.y - unionRect.y;
+
+  // Update last background bmp with clean background under new text
+  wxMemoryDC bmpDC(*m_lastDragSeriesBackgroundBmp);
+  bmpDC.Blit(0, 0, newRect.width, newRect.height, &unionDC, newXInUnion, newYInUnion);
+  bmpDC.SelectObject(wxNullBitmap);
+
+  // Draw the new text and rectangle into unionDC
+  unionDC.SetBrush(*wxWHITE_BRUSH);
+  unionDC.SetPen(*wxLIGHT_GREY_PEN);
+  unionDC.SetTextForeground(*wxBLACK);
+  unionDC.DrawRectangle(newXInUnion, newYInUnion, newRect.width, newRect.height);
+  unionDC.DrawText(m_selectedSeries->GetName(), newXInUnion, newYInUnion);
+
+  // Blit union bitmap to screen
+  dc.Blit(unionRect.x, unionRect.y, unionRect.width, unionRect.height, &unionDC, 0, 0);
+  unionDC.SelectObject(wxNullBitmap);
+
+  // Store rectangle for next frame
+  m_lastDragSeriesRect = newRect;
+}
+
+void mpInfoLegend::ClearDraggedSerie(wxDC& dc, mpWindow &w)
+{
+  m_selectedSeries = nullptr;
+
+  // Clear all axis selection
+  for (MP_LOOP_ITER : w.GetAxisDataYList())
+  {
+    if (m_yData.axis)
+    {
+      m_yData.axis->SetHovering(false);
+    }
+  }
+
+  // Restore the plot area under the dragged series by blitting the background bitmap
+  if (m_lastDragSeriesBackgroundBmp)
+  {
+    wxMemoryDC bmpDC(*m_lastDragSeriesBackgroundBmp);
+    dc.Blit(m_lastDragSeriesRect.x, m_lastDragSeriesRect.y, m_lastDragSeriesRect.width, m_lastDragSeriesRect.height, &bmpDC, 0, 0);
+  }
+
+  // Clear rectangle and background bmp
+  m_lastDragSeriesRect = wxRect();
+  delete m_lastDragSeriesBackgroundBmp;
+  m_lastDragSeriesBackgroundBmp = nullptr;
 }
 
 int mpInfoLegend::GetPointed(mpWindow &WXUNUSED(w), wxPoint eventPoint)
@@ -2680,6 +2772,20 @@ void mpScaleY::DoPlot(wxDC &dc, mpWindow &w)
   if (orgx == -1)
     return;
 
+  // Highlight if hovered when dragging a series over the axis
+  if (m_hover)
+  {
+    wxPen oldPen = dc.GetPen();
+    wxBrush oldBrush = dc.GetBrush();
+
+    dc.SetPen(wxPen(wxColour(47, 120, 214), 2));        // blue, thickness = 2
+    dc.SetBrush(wxBrush(wxColour(204, 232, 255, 128))); // semi-transparent blue
+    dc.DrawRoundedRectangle(m_xPos, m_plotBoundaries.startPy, m_axisWidth, m_plotBoundaries.endPy - m_plotBoundaries.startPy, 3);
+
+    dc.SetPen(oldPen);
+    dc.SetBrush(oldBrush);
+  }
+
   // Draw Y axis
   dc.DrawLine(orgx + 1, m_plotBoundaries.startPy, orgx + 1, m_plotBoundaries.endPy);
 
@@ -2937,7 +3043,6 @@ void mpWindow::InitParameters()
   m_movingInfoLayer = NULL;
   m_InfoCoords = NULL;
   m_InfoLegend = NULL;
-  m_InInfoLegend = false;
   m_zoom_bmp = NULL;
   m_magnetize = false;
   m_enableScrollBars = false;
@@ -2970,6 +3075,7 @@ bool mpWindow::CheckUserMouseAction(wxMouseEvent &event)
   return false;
 }
 
+
 void mpWindow::OnMouseLeftDown(wxMouseEvent &event)
 {
   if (CheckUserMouseAction(event))
@@ -3000,7 +3106,7 @@ void mpWindow::OnMouseLeftDown(wxMouseEvent &event)
   }
 #endif
 #ifdef ENABLE_MP_CONFIG
-  if (m_InInfoLegend)
+  if (m_InfoLegend && m_InfoLegend->Inside(m_mouseLClick))
   {
     int select = m_InfoLegend->GetPointed(*this, m_mouseLClick);
     if (select != -1)
@@ -3024,13 +3130,12 @@ void mpWindow::OnMouseLeftDown(wxMouseEvent &event)
       }
       else
       {
-        // Show config window
-        if (m_configWindow == NULL)
-          m_configWindow = new MathPlotConfigDialog(this);
-
-        m_configWindow->Initialize(mpcpiSeries);
-        m_configWindow->SelectChoiceSerie(select);
-        m_configWindow->Show();
+        // Either the user wants to drag a series to an axis, or open the configuration.
+        // If mouse starts moving after left down, assume dragging series. If button is
+        // released without moving, assume configuration
+        m_InfoLegend->m_selectedSeries = (mpFunction*)GetLayerPlot(select);
+        m_openConfigWindowPending = true;
+        m_infoLegendSelectedSeries = select;
       }
     }
   }
@@ -3060,6 +3165,9 @@ void mpWindow::OnMouseRightDown(wxMouseEvent &event)
 // JLB
 void mpWindow::OnMouseMove(wxMouseEvent &event)
 {
+  // The current mouse position
+  m_mousePos = event.GetPosition();
+
   if (CheckUserMouseAction(event))
     return;
 
@@ -3069,19 +3177,16 @@ void mpWindow::OnMouseMove(wxMouseEvent &event)
     return;
   }
 
-  // The current mouse position
-  wxPoint eventPoint = wxPoint(event.GetX(), event.GetY());
-
   // pan
   if (event.m_rightDown)
   {
     m_mouseMovedAfterRightClick = true; // Hides the popup menu after releasing the button!
 
     // The change:
-    wxPoint Axy = m_mouseRClick - eventPoint;
+    wxPoint Axy = m_mouseRClick - m_mousePos;
 
     // For the next event, use relative to this coordinates.
-    m_mouseRClick = eventPoint;
+    m_mouseRClick = m_mousePos;
 
     if (MP_OPTTEST(m_mouseYAxisID))
     {
@@ -3120,8 +3225,40 @@ void mpWindow::OnMouseMove(wxMouseEvent &event)
     // zoom select rectangle
     if (event.m_leftDown)
     {
-      wxPoint moveVector = eventPoint - m_mouseLClick;
-      if (m_movingInfoLayer == NULL)
+      wxPoint moveVector = m_mousePos - m_mouseLClick;
+
+      if(m_InfoLegend && m_InfoLegend->m_selectedSeries)
+      {
+        // If a series from the legend has been clicked on, it can be drag and dropped onto an Y-axis.
+        // Draw a rectangle with the series name at the cursor to indicate that it is being dragged
+        m_InfoLegend->DrawDraggedSeries(dc, *this, false);
+
+        // Since mouse has started to move, assume user wants to drag a series and not open configuration
+        m_openConfigWindowPending = false;
+
+        // If the series rectangle is dragged over a Y-axis, indicate this hovering by marking the
+        // axis in a slight blue color
+        mpOptional_int newAxisID = IsInsideYAxis(m_mousePos);
+        mpOptional_int lastAxisID = m_InfoLegend->m_lastHoveredAxisID;
+        if(newAxisID != lastAxisID)
+        {
+          if(lastAxisID)
+          {
+            m_AxisDataYList[*lastAxisID].axis->SetHovering(false);
+          }
+          if(newAxisID)
+          {
+            m_AxisDataYList[*newAxisID].axis->SetHovering(true);
+          }
+          UpdateAll();
+        }
+        m_InfoLegend->m_lastHoveredAxisID = newAxisID;
+      }
+      else if (m_movingInfoLayer)
+      {
+        m_movingInfoLayer->Move(moveVector);
+      }
+      else
       {
         if (m_mouseLeftDownAction == mpMouseBoxZoom)
         {
@@ -3199,17 +3336,16 @@ void mpWindow::OnMouseMove(wxMouseEvent &event)
         }
 
         if (m_magnetize && (!m_repainting))
-          m_magnet.Plot(dc, eventPoint);
+          m_magnet.Plot(dc, m_mousePos);
       }
-      else
-        m_movingInfoLayer->Move(moveVector);
+
     }
     else
     {
       // Mouse move coordinate
       if (m_InfoCoords && m_InfoCoords->IsVisible())
       {
-        if ((m_InfoCoords->GetDrawOutsideMargins()) || (m_PlotArea.Contains(eventPoint)))
+        if ((m_InfoCoords->GetDrawOutsideMargins()) || (m_PlotArea.Contains(m_mousePos)))
         {
           m_InfoCoords->UpdateInfo(*this, event);
           m_InfoCoords->Plot(dc, *this);
@@ -3221,15 +3357,14 @@ void mpWindow::OnMouseMove(wxMouseEvent &event)
       // Mouse move on legend
       if (m_InfoLegend && m_InfoLegend->IsVisible())
       {
-        m_InInfoLegend = m_InfoLegend->Inside(eventPoint);
-        if (m_InInfoLegend)
+        if (m_InfoLegend->Inside(m_mousePos))
           SetCursor(wxCursor(wxCURSOR_HAND));
         else
           SetCursor(*wxSTANDARD_CURSOR);
       }
 
       if (m_magnetize && (!m_repainting) && (event.GetEventType() == wxEVT_MOTION))
-        m_magnet.Plot(dc, eventPoint);
+        m_magnet.Plot(dc, m_mousePos);
     }
   }
   event.Skip();
@@ -3255,6 +3390,35 @@ void mpWindow::OnMouseLeftRelease(wxMouseEvent &event)
       ZoomRect(m_mouseLClick, release);
     }
   }
+
+  if(m_InfoLegend && m_InfoLegend->m_selectedSeries)
+  {
+    // Switch Y-axis of series if it was dropped on a axis
+    if(mpOptional_int yAxisID = IsInsideYAxis(event.GetPosition()))
+    {
+      m_InfoLegend->m_selectedSeries->SetYAxisID(*yAxisID);
+    }
+
+    // Clear the series dragging animation
+    wxClientDC dc(this);
+    m_InfoLegend->ClearDraggedSerie(dc, *this);
+    UpdateAll();
+  }
+
+#ifdef ENABLE_MP_CONFIG
+  if(m_openConfigWindowPending)
+  {
+    // Legend was left clicked. Open config when released
+    m_openConfigWindowPending = false;
+    // Show config window
+    if (m_configWindow == NULL)
+      m_configWindow = new MathPlotConfigDialog(this);
+
+    m_configWindow->Initialize(mpcpiSeries);
+    m_configWindow->SelectChoiceSerie(m_infoLegendSelectedSeries);
+    m_configWindow->Show();
+  }
+#endif
   event.Skip();
 }
 
@@ -3341,6 +3505,11 @@ void mpWindow::OnMouseLeave(wxMouseEvent &event)
   if (m_magnetize)
   {
     m_magnet.ClearPlot(dc);
+  }
+  if(m_InfoLegend && m_InfoLegend->m_selectedSeries)
+  {
+    m_InfoLegend->ClearDraggedSerie(dc, *this);
+    UpdateAll();
   }
 }
 
