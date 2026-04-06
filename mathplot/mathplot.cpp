@@ -2517,18 +2517,17 @@ void mpScaleX::DoPlot(wxDC &dc, mpWindow &w)
   ComputeScaleConstraints(step, maxAxisValue);
 
   double n0 = floor(w.GetPosX() / step) * step;
-  double n = 0;
 #if defined(MATHPLOT_DO_LOGGING) && defined(MATHPLOT_LOG_SCALE)
-  wxLogMessage(_T("mpScaleX::Plot: step: %f, end: %f, n: %f"), step, end, n0);
+  wxLogMessage(_T("mpScaleX::Plot: step: %f, end: %f, n0: %f"), step, end, n0);
 #endif
 
   int labelH = 0; // Control labels height to decide where to put axis name (below labels or on top of axis)
-  wxCoord tx, ty;
   wxString s;
 
   // Draw grid, ticks and compute max label length
-  for (n = n0; n < end; n += step)
+  for (int i = 0; i < (int)round((end - n0) / step); i++)
   {
+    const double n = n0 + i * step;
     const int p = w.x2p(n);
 #if defined(MATHPLOT_DO_LOGGING) && defined(MATHPLOT_LOG_SCALE)
     wxLogMessage(_T("mpScaleX::Plot: n: %f -> p = %d"), n, p);
@@ -2555,6 +2554,7 @@ void mpScaleX::DoPlot(wxDC &dc, mpWindow &w)
       // Write ticks labels in s string : compute size
       s = FormatLabelValue(n);
 
+      wxCoord tx = 0, ty = 0;
       dc.GetTextExtent(s, &tx, &ty);
 
       if ((m_flags == mpALIGN_BORDER_BOTTOM) || (m_flags == mpALIGN_TOP))
@@ -2687,20 +2687,24 @@ void mpScaleY::DoPlot(wxDC &dc, mpWindow &w)
   // Compute scale constraint
   ComputeScaleConstraints(step, maxAxisValue);
 
-  double n = floor(start / step) * step;
+  double n0 = floor(start / step) * step;
+#if defined(MATHPLOT_DO_LOGGING) && defined(MATHPLOT_LOG_SCALE)
+  wxLogMessage(_T("mpScaleY::Plot: step: %f, end: %f, n0: %f"), step, end, n0);
+#endif
 
   wxCoord labelWidth = 0;
   // Before starting cycle, calculate label height
-  wxString s = FormatLabelValue(n);
+  wxString s = FormatLabelValue(n0);
   wxCoord labelHeight = dc.GetTextExtent(s).GetHeight() / 2;
 
-  wxCoord tx = 0, ty = 0;
-
   // Draw grid, ticks and label
-  for (; n < end; n += step)
+  wxCoord startPy = m_plotBoundaries.startPy + labelHeight;
+  wxCoord endPy = m_plotBoundaries.endPy - labelHeight;
+  for (int i = 0; i < (int)round((end - n0)/step); i++)
   {
+    const double n = n0 + i * step;
     const wxCoord p = w.y2p(n, GetAxisID());
-    if ((p > m_plotBoundaries.startPy + labelHeight) && (p < m_plotBoundaries.endPy - labelHeight))
+    if ((p > startPy) && (p < endPy))
     {
       // Draw axis grids
       if (m_grids)
@@ -2727,6 +2731,7 @@ void mpScaleY::DoPlot(wxDC &dc, mpWindow &w)
       s = FormatLabelValue(n);
 
       // Print ticks labels
+      wxCoord tx = 0, ty = 0;
       dc.GetTextExtent(s, &tx, &ty);
 #if defined(MATHPLOT_DO_LOGGING) && defined(MATHPLOT_LOG_SCALE)
       if (ty != labelHeight)
