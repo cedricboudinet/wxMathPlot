@@ -2388,6 +2388,9 @@ int mpScale::GetDecimalDigits(double step)
 
 wxIMPLEMENT_DYNAMIC_CLASS(mpScaleX, mpScale);
 
+/// y origin coordinate of the X axis
+int mpScaleX::m_orgy = -1;
+
 /**
  * Get the origin of axis and initialize the plot boundaries
  */
@@ -2489,14 +2492,14 @@ void mpScaleX::DrawScaleName(wxDC &dc, mpWindow &w, int origin, int labelSize)
 
 void mpScaleX::DoPlot(wxDC &dc, mpWindow &w)
 {
-  int orgy = GetOrigin(w);
+  m_orgy = GetOrigin(w);
 
   // Draw nothing if we are outside margins
-  if (orgy == -1)
+  if (m_orgy == -1)
     return;
 
   // Draw X axis
-  dc.DrawLine(m_plotBoundaries.startPx, orgy, m_plotBoundaries.endPx, orgy);
+  dc.DrawLine(m_plotBoundaries.startPx, m_orgy, m_plotBoundaries.endPx, m_orgy);
 
   const double scaleX = w.GetScaleX();
   double step = GetStep(scaleX, MIN_X_AXIS_LABEL_SEPARATION);
@@ -2546,9 +2549,9 @@ void mpScaleX::DoPlot(wxDC &dc, mpWindow &w)
       {
         dc.SetPen(m_pen);
         if (m_flags == mpALIGN_BORDER_BOTTOM)
-          dc.DrawLine(p, orgy, p, orgy - kTickSize);
+          dc.DrawLine(p, m_orgy, p, m_orgy - kTickSize);
         else
-          dc.DrawLine(p, orgy, p, orgy + kTickSize);
+          dc.DrawLine(p, m_orgy, p, m_orgy + kTickSize);
       }
 
       // Write ticks labels in s string : compute size
@@ -2559,11 +2562,11 @@ void mpScaleX::DoPlot(wxDC &dc, mpWindow &w)
 
       if ((m_flags == mpALIGN_BORDER_BOTTOM) || (m_flags == mpALIGN_TOP))
       {
-        dc.DrawText(s, p - tx / 2, orgy - ty - kTickSize);
+        dc.DrawText(s, p - tx / 2, m_orgy - ty - kTickSize);
       }
       else
       {
-        dc.DrawText(s, p - tx / 2, orgy + kTickSize);
+        dc.DrawText(s, p - tx / 2, m_orgy + kTickSize);
       }
 
       labelH = (labelH <= ty) ? ty : labelH;
@@ -2571,7 +2574,7 @@ void mpScaleX::DoPlot(wxDC &dc, mpWindow &w)
   }
 
   // Draw axis name
-  DrawScaleName(dc, w, orgy, labelH);
+  DrawScaleName(dc, w, m_orgy, labelH);
 }
 
 //-----------------------------------------------------------------------------
@@ -2707,7 +2710,9 @@ void mpScaleY::DoPlot(wxDC &dc, mpWindow &w)
     if ((p > startPy) && (p < endPy))
     {
       // Draw axis grids
-      if (m_grids)
+      // We take care if we are over the X axis. This work because we plot in order X axis and Y axis after.
+      // Note that we consider that we have only one X axis
+      if ((m_grids) && (mpScaleX::m_orgy != p))
       {
         dc.SetPen(m_gridpen);
         dc.DrawLine(m_plotBoundaries.startPx + 1, p, m_plotBoundaries.endPx - 1, p);

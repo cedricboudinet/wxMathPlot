@@ -2941,6 +2941,11 @@ class WXDLLIMPEXP_MATHPLOT mpScaleX: public mpScale
     }
 
   protected:
+    /**
+     * The y origin coordinate of the X axis
+     * We declare it static so we can access to it in mpScaleY
+     */
+    static int m_orgy;
 
     /** Layer plot handler.
      This implementation will plot the ruler adjusted to the visible area. */
@@ -2951,6 +2956,11 @@ class WXDLLIMPEXP_MATHPLOT mpScaleX: public mpScale
 
   private:
     DECLARE_DYNAMIC_CLASS_MATHPLOT(mpScaleX);
+
+    /**
+     * mpScaleY need to access to the Y origin coordinate to not overwrite X axis when grid is drawn
+     */
+    friend mpScaleY;
 };
 
 /** Plot layer implementing a y-scale ruler.
