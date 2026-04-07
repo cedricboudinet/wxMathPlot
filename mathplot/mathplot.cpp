@@ -957,66 +957,21 @@ void mpInfoLegend::DoPlot(wxDC &dc, mpWindow &w)
 
 void mpInfoLegend::DrawDraggedSeries(wxDC& dc, mpWindow &w, bool onPaint)
 {
-  // If called from OnPaint event, the background is already "clean", and we need to
-  // reset the stored rectangle and background bitmap
-  if(onPaint)
-  {
-    m_lastDragSeriesRect = wxRect();
-    delete m_lastDragSeriesBackgroundBmp;
-    m_lastDragSeriesBackgroundBmp = nullptr;
-  }
-
-  // New text rectangle at mouse
   wxSize textSize = dc.GetTextExtent(m_selectedSeries->GetName());
   wxRect newRect(w.GetMousePosition().x - 5, w.GetMousePosition().y - 18, textSize.x, textSize.y);
 
-  // We need to delete the last rectangle to avoid a tail, by using the stored background bmp.
-  // But instead of deleting the last rectangle and then drawing a new one in two separate steps (which
-  // cause flickering), create a larger rectangle that covers both the new and old one, fill it with
-  // clean background and the new rectangle, and then blit everything to the dc in one step.
-  wxRect unionRect = newRect;
-  if(!m_lastDragSeriesRect.IsEmpty())
-    unionRect.Union(m_lastDragSeriesRect);
-
-  // Create union bitmap and memory DC, filled with current screen content
-  wxBitmap unionBmp(unionRect.width, unionRect.height, -1);
-  wxMemoryDC unionDC(unionBmp);
-  unionDC.Blit(0, 0, unionRect.width, unionRect.height, &dc, unionRect.x, unionRect.y);
-
-  // Restore old drag background if it exists
-  if (m_lastDragSeriesBackgroundBmp)
-  {
-    unionDC.DrawBitmap(*m_lastDragSeriesBackgroundBmp, m_lastDragSeriesRect.x - unionRect.x, m_lastDragSeriesRect.y - unionRect.y, false);
-  }
-  else
-  {
-    m_lastDragSeriesBackgroundBmp = new wxBitmap(newRect.width, newRect.height, -1);
-  }
-
-  int newXInUnion = newRect.x - unionRect.x;
-  int newYInUnion = newRect.y - unionRect.y;
-
-  // Update last background bmp with clean background under new text
-  wxMemoryDC bmpDC(*m_lastDragSeriesBackgroundBmp);
-  bmpDC.Blit(0, 0, newRect.width, newRect.height, &unionDC, newXInUnion, newYInUnion);
-  bmpDC.SelectObject(wxNullBitmap);
-
-  // Draw the new text and rectangle into unionDC
-  unionDC.SetBrush(*wxWHITE_BRUSH);
-  unionDC.SetPen(*wxLIGHT_GREY_PEN);
-  unionDC.SetTextForeground(*wxBLACK);
-  unionDC.DrawRectangle(newXInUnion, newYInUnion, newRect.width, newRect.height);
-  unionDC.DrawText(m_selectedSeries->GetName(), newXInUnion, newYInUnion);
-
-  // Blit union bitmap to screen
-  dc.Blit(unionRect.x, unionRect.y, unionRect.width, unionRect.height, &unionDC, 0, 0);
-  unionDC.SelectObject(wxNullBitmap);
-
-  // Store rectangle for next frame
-  m_lastDragSeriesRect = newRect;
+  w.DrawTransientContent(dc, m_lastDragSeriesState, newRect, onPaint,
+    [this](wxDC& dc, const wxRect& r)
+    {
+      dc.SetBrush(*wxWHITE_BRUSH);
+      dc.SetPen(*wxLIGHT_GREY_PEN);
+      dc.SetTextForeground(*wxBLACK);
+      dc.DrawRectangle(r.x, r.y, r.width, r.height);
+      dc.DrawText(m_selectedSeries->GetName(), r.x, r.y);
+    });
 }
 
-void mpInfoLegend::ClearDraggedSerie(wxDC& dc, mpWindow &w)
+void mpInfoLegend::ClearDraggedSeries(wxDC& dc, mpWindow &w)
 {
   m_selectedSeries = nullptr;
 
@@ -1030,16 +985,16 @@ void mpInfoLegend::ClearDraggedSerie(wxDC& dc, mpWindow &w)
   }
 
   // Restore the plot area under the dragged series by blitting the background bitmap
-  if (m_lastDragSeriesBackgroundBmp)
+  if (m_lastDragSeriesState.bmp)
   {
-    wxMemoryDC bmpDC(*m_lastDragSeriesBackgroundBmp);
-    dc.Blit(m_lastDragSeriesRect.x, m_lastDragSeriesRect.y, m_lastDragSeriesRect.width, m_lastDragSeriesRect.height, &bmpDC, 0, 0);
+    wxMemoryDC bmpDC(*m_lastDragSeriesState.bmp);
+    dc.Blit(m_lastDragSeriesState.rect.x, m_lastDragSeriesState.rect.y, m_lastDragSeriesState.rect.width, m_lastDragSeriesState.rect.height, &bmpDC, 0, 0);
+    bmpDC.SelectObject(wxNullBitmap);
   }
 
   // Clear rectangle and background bmp
-  m_lastDragSeriesRect = wxRect();
-  delete m_lastDragSeriesBackgroundBmp;
-  m_lastDragSeriesBackgroundBmp = nullptr;
+  m_lastDragSeriesState.rect = wxRect();
+  DeleteAndNull(m_lastDragSeriesState.bmp);
 }
 
 int mpInfoLegend::GetPointed(mpWindow &WXUNUSED(w), wxPoint eventPoint)
@@ -2977,7 +2932,7 @@ mpWindow::~mpWindow()
   DelAllLayers(mpForceDelete, false);
 
   DeleteAndNull(m_buff_bmp);
-  DeleteAndNull(m_zoom_bmp);
+  DeleteAndNull(m_boxZoomBackground.bmp);
   DeleteAndNull(m_Screenshot_bmp);
 }
 
@@ -3043,7 +2998,6 @@ void mpWindow::InitParameters()
   m_movingInfoLayer = NULL;
   m_InfoCoords = NULL;
   m_InfoLegend = NULL;
-  m_zoom_bmp = NULL;
   m_magnetize = false;
   m_enableScrollBars = false;
   m_mouseLeftDownAction = mpMouseBoxZoom;
@@ -3262,47 +3216,8 @@ void mpWindow::OnMouseMove(wxMouseEvent &event)
       {
         if (m_mouseLeftDownAction == mpMouseBoxZoom)
         {
-          // Zoom by creating a rectangle and zoom into that when button is released
-
-          // First : restore stored bitmap
-          if (m_zoom_bmp)
-          {
-            wxMemoryDC m_coord_dc(&dc);
-            m_coord_dc.SelectObject(*m_zoom_bmp);
-            dc.Blit(m_zoom_Dim.x, m_zoom_Dim.y, m_zoom_Dim.width, m_zoom_Dim.height, &m_coord_dc, 0, 0);
-            m_coord_dc.SelectObject(wxNullBitmap);
-            DeleteAndNull(m_zoom_bmp);
-          }
-
-          // Second : store new bitmap
-          // Rectangular area selected for zoom
-          wxRect zoom_dim = wxRect(m_mouseLClick, wxSize(moveVector.x, moveVector.y));
-          if ((zoom_dim.width != 0) && (zoom_dim.height != 0))
-          {
-            if (zoom_dim.width < 0)
-            {
-              zoom_dim.x += zoom_dim.width;
-              zoom_dim.width = abs(zoom_dim.width);
-            }
-            if (zoom_dim.height < 0)
-            {
-              zoom_dim.y += zoom_dim.height;
-              zoom_dim.height = abs(zoom_dim.height);
-            }
-
-            m_zoom_bmp = new wxBitmap(zoom_dim.width, zoom_dim.height, dc);
-            wxMemoryDC m_coord_dc(&dc);
-            m_coord_dc.SelectObject(*m_zoom_bmp);
-            m_coord_dc.Blit(0, 0, zoom_dim.width, zoom_dim.height, &dc, zoom_dim.x, zoom_dim.y);
-            m_coord_dc.SelectObject(wxNullBitmap);
-            m_zoom_Dim = zoom_dim;
-
-            // Draw the rectangle that focus the selected region
-            wxPen pen(*wxBLACK, 1, wxPENSTYLE_DOT);
-            dc.SetPen(pen);
-            dc.SetBrush(*wxTRANSPARENT_BRUSH);
-            dc.DrawRectangle(zoom_dim);
-          }
+          m_boxZoomActive = true;
+          DrawBoxZoom(dc, false);
         }
         else if (m_mouseLeftDownAction == mpMouseDragZoom)
         {
@@ -3338,7 +3253,6 @@ void mpWindow::OnMouseMove(wxMouseEvent &event)
         if (m_magnetize && (!m_repainting))
           m_magnet.Plot(dc, m_mousePos);
       }
-
     }
     else
     {
@@ -3382,13 +3296,17 @@ void mpWindow::OnMouseLeftRelease(wxMouseEvent &event)
   }
   else if (m_mouseLeftDownAction == mpMouseBoxZoom)
   {
-    DeleteAndNull(m_zoom_bmp);
-    wxPoint release(event.GetX(), event.GetY());
-    // Zoom if we have a real rectangle
-    if ((release.x != m_mouseLClick.x) && (release.y != m_mouseLClick.y))
+    DeleteAndNull(m_boxZoomBackground.bmp);
+    if(m_boxZoomActive)
     {
-      ZoomRect(m_mouseLClick, release);
+      wxPoint release(event.GetX(), event.GetY());
+      // Zoom if we have a real rectangle
+      if ((release.x != m_mouseLClick.x) && (release.y != m_mouseLClick.y))
+      {
+        ZoomRect(m_mouseLClick, release);
+      }
     }
+    m_boxZoomActive = false;
   }
 
   if(m_InfoLegend && m_InfoLegend->m_selectedSeries)
@@ -3401,7 +3319,7 @@ void mpWindow::OnMouseLeftRelease(wxMouseEvent &event)
 
     // Clear the series dragging animation
     wxClientDC dc(this);
-    m_InfoLegend->ClearDraggedSerie(dc, *this);
+    m_InfoLegend->ClearDraggedSeries(dc, *this);
     UpdateAll();
   }
 
@@ -3494,13 +3412,13 @@ void mpWindow::OnMouseLeave(wxMouseEvent &event)
   {
     m_InfoCoords->ErasePlot(dc, *this);
   }
-  if (m_zoom_bmp)
+  if (m_boxZoomBackground.bmp)
   {
-    wxMemoryDC m_coord_dc(&dc);
-    m_coord_dc.SelectObject(*m_zoom_bmp);
-    dc.Blit(m_zoom_Dim.x, m_zoom_Dim.y, m_zoom_Dim.width, m_zoom_Dim.height, &m_coord_dc, 0, 0);
-    m_coord_dc.SelectObject(wxNullBitmap);
-    DeleteAndNull(m_zoom_bmp);
+    m_boxZoomActive = false;
+    wxMemoryDC boxZoomDC(*m_boxZoomBackground.bmp);
+    dc.Blit(m_boxZoomBackground.rect.x, m_boxZoomBackground.rect.y, m_boxZoomBackground.rect.width, m_boxZoomBackground.rect.height, &boxZoomDC, 0, 0);
+    boxZoomDC.SelectObject(wxNullBitmap);
+    DeleteAndNull(m_boxZoomBackground.bmp);
   }
   if (m_magnetize)
   {
@@ -3508,7 +3426,7 @@ void mpWindow::OnMouseLeave(wxMouseEvent &event)
   }
   if(m_InfoLegend && m_InfoLegend->m_selectedSeries)
   {
-    m_InfoLegend->ClearDraggedSerie(dc, *this);
+    m_InfoLegend->ClearDraggedSeries(dc, *this);
     UpdateAll();
   }
 }
@@ -4226,6 +4144,59 @@ void mpWindow::DelAllYAxisAfterID(mpDeleteAction alsoDeleteObject, int yAxisID, 
 #endif // ENABLE_MP_CONFIG
 }
 
+void mpWindow::DrawTransientContent(wxDC& dc, mpStoredContentBackground& background, wxRect newRect, bool onPaint, std::function<void(wxDC&, const wxRect&)> drawContent)
+{
+  // If called from OnPaint event, the background is already "clean", and
+  // we need to reset the stored rectangle and background bitmap
+  if (onPaint)
+  {
+    background.rect = wxRect();
+    DeleteAndNull(background.bmp);
+  }
+
+  // We need to delete the last content to avoid a tail, by using the stored background bmp.
+  // But instead of deleting the last content and then drawing a new one in two separate steps (which
+  // cause flickering), create a larger rectangle that covers both the new and old one, fill it with
+  // clean background and the new content, and then blit everything to the dc in one step
+  wxRect unionRect = newRect;
+  if (!background.rect.IsEmpty())
+    unionRect.Union(background.rect);
+
+  // Create union bitmap and memory DC, filled with current screen content
+  wxBitmap unionBmp(unionRect.width, unionRect.height, -1);
+  wxMemoryDC unionDC(unionBmp);
+  unionDC.Blit(0, 0, unionRect.width, unionRect.height, &dc, unionRect.x, unionRect.y);
+
+  // Restore previous background
+  if (background.bmp)
+    unionDC.DrawBitmap(*background.bmp, background.rect.x - unionRect.x, background.rect.y - unionRect.y, false);
+
+  // Recreate bitmap only if size differs or null
+  if (!background.bmp || (background.bmp->GetWidth() != newRect.width) || (background.bmp->GetHeight() != newRect.height))
+  {
+    delete background.bmp;
+    background.bmp = new wxBitmap(newRect.width, newRect.height, -1);
+  }
+
+  // Part of the union rectangle where the new data shall be drawn
+  wxRect newRectInUnion = wxRect(newRect.x - unionRect.x, newRect.y - unionRect.y, newRect.width, newRect.height);
+
+  // Update stored background under new rect
+  wxMemoryDC bmpDC(*background.bmp);
+  bmpDC.Blit(0, 0, newRectInUnion.width, newRectInUnion.height, &unionDC, newRectInUnion.x, newRectInUnion.y);
+  bmpDC.SelectObject(wxNullBitmap);
+
+  // Draw content into unionDC at the specified rectangle area via callback
+  drawContent(unionDC, newRectInUnion);
+
+  // Blit to screen
+  dc.Blit(unionRect.x, unionRect.y, unionRect.width, unionRect.height, &unionDC, 0, 0);
+  unionDC.SelectObject(wxNullBitmap);
+
+  // Store new rect
+  background.rect = newRect;
+}
+
 void mpWindow::OnPaint(wxPaintEvent &WXUNUSED(event))
 {
 #ifdef _WIN32
@@ -4297,6 +4268,10 @@ void mpWindow::OnPaint(wxPaintEvent &WXUNUSED(event))
         (*it)->Plot(*trgDc, *this);
     }
   }
+
+  // Re-draw box zoom rectangle to avoid flickering
+  if(m_boxZoomActive)
+    DrawBoxZoom(*trgDc, true);
 
   // If doublebuffer, draw now to the window:
   if (m_enableDoubleBuffer)
@@ -4468,6 +4443,24 @@ bool mpWindow::UpdateBBox()
       m_AxisDataX.bound.min, m_AxisDataX.bound.max, m_AxisDataYList[0].bound.min, m_AxisDataYList[0].bound.max);
 #endif // MATHPLOT_DO_LOGGING
   return true;
+}
+
+void mpWindow::DrawBoxZoom(wxDC& dc, bool onPaint)
+{
+  wxRect newRect(m_mouseLClick, m_mousePos);
+
+  // Normalize
+  if (newRect.width < 0) { newRect.x += newRect.width; newRect.width = abs(newRect.width); }
+  if (newRect.height < 0) { newRect.y += newRect.height; newRect.height = abs(newRect.height); }
+
+  DrawTransientContent(dc, m_boxZoomBackground, newRect, onPaint,
+    [](wxDC& dc, const wxRect& r)
+    {
+      wxPen pen(*wxBLACK, 1, wxPENSTYLE_DOT);
+      dc.SetPen(pen);
+      dc.SetBrush(*wxTRANSPARENT_BRUSH);
+      dc.DrawRectangle(r.x, r.y, r.width, r.height);
+    });
 }
 
 void mpWindow::UpdateAll()

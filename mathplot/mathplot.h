@@ -621,6 +621,16 @@ struct mpFloatRectSimple
   }
 };
 
+/**
+ * A structure to store background data used when plotting moving objects, so that
+ * the background can be restored under the last drawn content
+ */
+struct mpStoredContentBackground
+{
+  wxRect rect;
+  wxBitmap* bmp = nullptr;
+};
+
 /** Command IDs used by mpWindow
  * Same order for the popup menu
  */
@@ -1490,12 +1500,11 @@ class WXDLLIMPEXP_MATHPLOT mpInfoLegend: public mpInfoLayer
     /** Clear the dragged series rectangle from the plot and restores axis hovering indication
      @param dc the device content where to plot
      @param w the window to plot */
-    void ClearDraggedSerie(wxDC& dc, mpWindow &w);
+    void ClearDraggedSeries(wxDC& dc, mpWindow &w);
 
     mpFunction* m_selectedSeries = nullptr;             //!< the series currently selected/clicked by the user
-    wxBitmap* m_lastDragSeriesBackgroundBmp = nullptr;  //!< stores the background under the dragged series for erasing/blitting
-    wxRect m_lastDragSeriesRect;                        //!< rectangle of the dragged series' drawn area
     mpOptional_int m_lastHoveredAxisID;                 //!< last axis ID that was hovered when dragging series
+    mpStoredContentBackground m_lastDragSeriesState;    //!< stores the background under the dragged series for erasing/blitting
 
   protected:
     mpLegendStyle m_item_mode;          //!< Visual style used for each legend entry.
@@ -2813,6 +2822,9 @@ class WXDLLIMPEXP_MATHPLOT mpScale: public mpLayer
       return mpRange<double>(m_axisRange);
     }
 
+    /** Set if axis shall be highlighted when a series is dragged over it
+     * @param hover true if shall be highlighted
+     */
     void SetHovering(bool hover)
     {
       m_hover = hover;
@@ -4317,6 +4329,18 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
       return m_mousePos;
     }
 
+    /**
+     * Draws content directly at at specified rectangle position while also clearing the last drawn
+     * content by including the last background under the content and also drawing this. Useful to
+     * draw moving objects like tooltips that follows mouse cursor without having to call Refresh()
+     * @param dc the device content where to plot
+     * @param background background data used to restore plot background under the last drawn content, to mitigate trail
+     * @param newRect rectangle in plot where to draw the content
+     * @param onPaint indicate if called from OnPaint event or not
+     * @param drawContent callback function used to draw actual new content in specified rectangle in wxDC
+     */
+    void DrawTransientContent(wxDC& dc, mpStoredContentBackground& background, wxRect newRect, bool onPaint, std::function<void(wxDC&, const wxRect&)> drawContent);
+
 #ifdef ENABLE_MP_CONFIG
     void RefreshConfigWindow();
     /**
@@ -4408,6 +4432,13 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
      * \return true if there valid bounding box set in m_bounds. */
     virtual bool UpdateBBox();
 
+    /** Draws the box zoom selection rectangle
+     * @param dc the device content where to plot
+     * @param w the window to plot
+     * @param onPaint indicate if it is called from OnPaint event
+     * */
+    void DrawBoxZoom(wxDC& dc, bool onPaint);
+
     /** Function to initialize all variables to their default values
      * This function is called in mpWindow constructor and should not be used anymore
      */
@@ -4461,8 +4492,8 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
     mpInfoCoords* m_InfoCoords;         //!< Pointer to the optional info coords layer
     mpInfoLegend* m_InfoLegend;         //!< Pointer to the optional info legend layer
 
-    wxBitmap* m_zoom_bmp;               //!< For zoom selection
-    wxRect m_zoom_Dim;                  //!< Rectangular area selected for zoom
+    bool m_boxZoomActive = false;       //!< Indicate if box zoom is active
+    mpStoredContentBackground m_boxZoomBackground;  //!< Stores the background under the box zoom rectangle for erasing/blitting
 
     bool m_magnetize;                   //!< For mouse magnetization
     mpMagnet m_magnet;                  //!< For mouse magnetization
