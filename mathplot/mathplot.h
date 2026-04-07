@@ -1479,6 +1479,24 @@ class WXDLLIMPEXP_MATHPLOT mpInfoLegend: public mpInfoLayer
     /// Return the index of visible layer whose legend is pointed at...
     int GetPointed(mpWindow &w, wxPoint eventPoint);
 
+    /** When a series is being dragged, draw a rectangle with its name at the mouse cursor.
+     *  Will draw directly to dc via Blit to make it responsive, and also makes sure that
+     *  no dragging tail stays by always storing and restoring a clean background
+     @param dc the device content where to plot
+     @param w the window to plot
+     @param onPaint indicate if it is called from OnPaint event */
+    void DrawDraggedSeries(wxDC& dc, mpWindow &w, bool onPaint);
+
+    /** Clear the dragged series rectangle from the plot and restores axis hovering indication
+     @param dc the device content where to plot
+     @param w the window to plot */
+    void ClearDraggedSerie(wxDC& dc, mpWindow &w);
+
+    mpFunction* m_selectedSeries = nullptr;             //!< the series currently selected/clicked by the user
+    wxBitmap* m_lastDragSeriesBackgroundBmp = nullptr;  //!< stores the background under the dragged series for erasing/blitting
+    wxRect m_lastDragSeriesRect;                        //!< rectangle of the dragged series' drawn area
+    mpOptional_int m_lastHoveredAxisID;                 //!< last axis ID that was hovered when dragging series
+
   protected:
     mpLegendStyle m_item_mode;          //!< Visual style used for each legend entry.
     mpLegendDirection m_item_direction; //!< Layout direction used when arranging legend entries.
@@ -2795,6 +2813,11 @@ class WXDLLIMPEXP_MATHPLOT mpScale: public mpLayer
       return mpRange<double>(m_axisRange);
     }
 
+    void SetHovering(bool hover)
+    {
+      m_hover = hover;
+    }
+
     /** Get if we are in Logarithmic mode
      * @return true if we are in Logarithmic mode
      */
@@ -2825,6 +2848,7 @@ class WXDLLIMPEXP_MATHPLOT mpScale: public mpLayer
     unsigned int m_timeConv;     //!< Selects if time has to be converted to local time or not.
     wxString m_labelFormat;      //!< Format string used to print labels
     bool m_isLog;                //!< Is the axis a log axis ?
+    bool m_hover = false;        //!< Indicate if axis is hovered by mouse while dragging a series onto it
 
     /// virtual function to compute origin of the axis
     /// @param w Current window
@@ -4284,6 +4308,15 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
       return m_mouseLeftDownAction;
     }
 
+    /**
+     * Returns current mouse position in window
+     * @return Mouse position
+     */
+    wxPoint GetMousePosition()
+    {
+      return m_mousePos;
+    }
+
 #ifdef ENABLE_MP_CONFIG
     void RefreshConfigWindow();
     /**
@@ -4417,6 +4450,7 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
     bool m_enableMouseNavigation;       //!< For pan/zoom with the mouse.
     mpMouseButtonAction m_mouseLeftDownAction;  //!< Type of action for left mouse button
     bool m_mouseMovedAfterRightClick;   //!< If the mouse does not move after a right click, then the context menu is displayed.
+    wxPoint m_mousePos;                 //!< Current mouse position in window
     wxPoint m_mouseRClick;              //!< For the right button "drag" feature
     wxPoint m_mouseLClick;              //!< Starting coords for rectangular zoom selection
     double m_mouseScaleX;               //!< Store current X-scale, used as reference during drag zooming
@@ -4426,7 +4460,6 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
     mpInfoLayer* m_movingInfoLayer;     //!< For moving info layers over the window area
     mpInfoCoords* m_InfoCoords;         //!< Pointer to the optional info coords layer
     mpInfoLegend* m_InfoLegend;         //!< Pointer to the optional info legend layer
-    bool m_InInfoLegend;                //!< Boolean value indicating that the mouse is moving over the legend area
 
     wxBitmap* m_zoom_bmp;               //!< For zoom selection
     wxRect m_zoom_Dim;                  //!< Rectangular area selected for zoom
@@ -4441,6 +4474,8 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
 
 #ifdef ENABLE_MP_CONFIG
     MathPlotConfigDialog* m_configWindow = NULL;  //!< For the config dialog
+    bool m_openConfigWindowPending = false;
+    int m_infoLegendSelectedSeries;
 #endif // ENABLE_MP_CONFIG
 
     mpOnDeleteLayer m_OnDeleteLayer = NULL;          //!< Event when we delete a layer
