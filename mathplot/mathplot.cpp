@@ -314,8 +314,7 @@ mpInfoLayer::mpInfoLayer() :
 {
   m_subtype = mpiInfo;
   m_dim = wxRect(0, 0, 1, 1);
-  m_oldDim = m_dim;
-  m_info_bmp = NULL;
+  m_info_bmp = nullptr;
   m_brush = *wxTRANSPARENT_BRUSH;
   m_brush.SetColour(*wxWHITE);
   m_reference.x = 0;
@@ -340,12 +339,14 @@ mpInfoLayer::mpInfoLayer(wxRect rect, const wxBrush &brush, mpLocation location)
 mpInfoLayer::~mpInfoLayer()
 {
   DeleteAndNull(m_info_bmp);
+  DeleteAndNull(m_infoBackground.bmp);
 }
 
 void mpInfoLayer::SetVisible(bool show)
 {
   m_visible = show;
   DeleteAndNull(m_info_bmp);
+  DeleteAndNull(m_infoBackground.bmp);
 }
 
 void mpInfoLayer::UpdateInfo(mpWindow &WXUNUSED(w), wxEvent &WXUNUSED(event))
@@ -489,13 +490,12 @@ void mpInfoLayer::DoPlot(wxDC &dc, mpWindow &w)
 
 void mpInfoLayer::ErasePlot(wxDC &dc, mpWindow &WXUNUSED(w))
 {
-  if (m_info_bmp)
+  if (m_infoBackground.bmp)
   {
-    wxMemoryDC m_info_dc(&dc);
-    m_info_dc.SelectObject(*m_info_bmp);
-    dc.Blit(m_oldDim.x, m_oldDim.y, m_oldDim.width, m_oldDim.height, &m_info_dc, 0, 0);
+    wxMemoryDC m_info_dc(*m_infoBackground.bmp);
+    dc.Blit(m_infoBackground.rect.x, m_infoBackground.rect.y, m_infoBackground.rect.width, m_infoBackground.rect.height, &m_info_dc, 0, 0);
     m_info_dc.SelectObject(wxNullBitmap);
-    DeleteAndNull(m_info_bmp);
+    DeleteAndNull(m_infoBackground.bmp);
   }
 }
 
@@ -681,6 +681,11 @@ void mpInfoCoords::ErasePlot(wxDC &dc, mpWindow &w)
 
 void mpInfoCoords::DoPlot(wxDC &dc, mpWindow &w)
 {
+  DrawContent(dc, w, true);
+}
+
+void mpInfoCoords::DrawContent(wxDC &dc, mpWindow &w, bool onPaint)
+{
   if (m_content.IsEmpty())
   {
     ErasePlot(dc, w);
@@ -691,7 +696,7 @@ void mpInfoCoords::DoPlot(wxDC &dc, mpWindow &w)
   int width = 0, height = 0;
   int offset = (m_series_coord) ? LEGEND_LINEWIDTH : 0;
 
-// Should be work on Windows and Linux. If no, use GetTextExtent for Linux
+  // Compute text size. Should work on both Windows and Linux. If no, use GetTextExtent for Linux
   dc.GetMultiLineTextExtent(m_content, &textX, &textY);
   if (width < textX + MARGIN_COORD_X2 + offset)
     width = textX + MARGIN_COORD_X2 + offset;
@@ -700,6 +705,8 @@ void mpInfoCoords::DoPlot(wxDC &dc, mpWindow &w)
   textY /= 2;
 
   SetInfoRectangle(w, width, height);
+
+  // Position rectangle near cursor if needed
   if (m_location == mpCursor)
   {
     m_dim.x = m_mouseX + 2 * MARGIN_BOTTOM_OFFSET;
@@ -710,40 +717,26 @@ void mpInfoCoords::DoPlot(wxDC &dc, mpWindow &w)
       m_dim.y = m_mouseY - m_dim.height - 5;
   }
 
-  // Don't use stored bitmap when we repaint all
-  if (w.IsRepainting())
-    DeleteAndNull(m_info_bmp);
+  // Draw transiently to avoid flicker
+  w.DrawTransientContent(dc, m_infoBackground, m_dim, onPaint,
+    [this, offset, textY](wxDC& dc, const wxRect& r)
+    {
+      // Draw background rectangle and text
+      dc.SetBrush(m_brush);
+      dc.SetPen(m_penSeries);
+      dc.DrawRectangle(r.x, r.y, r.width, r.height);
+      dc.DrawText(m_content, r.x + MARGIN_COORD + offset, r.y + MARGIN_COORD);
 
-  // First : restore stored bitmap
-  if (m_info_bmp)
-  {
-    wxMemoryDC m_coord_dc(&dc);
-    m_coord_dc.SelectObject(*m_info_bmp);
-    dc.Blit(m_oldDim.x, m_oldDim.y, m_oldDim.width, m_oldDim.height, &m_coord_dc, 0, 0);
-    m_coord_dc.SelectObject(wxNullBitmap);
-    DeleteAndNull(m_info_bmp);
-  }
-
-  // Second : store new bitmap
-  m_info_bmp = new wxBitmap(m_dim.width, m_dim.height, dc);
-  wxMemoryDC m_coord_dc(&dc);
-  m_coord_dc.SelectObject(*m_info_bmp);
-  m_coord_dc.Blit(0, 0, m_dim.width, m_dim.height, &dc, m_dim.x, m_dim.y);
-  m_coord_dc.SelectObject(wxNullBitmap);
-  m_oldDim = m_dim;
-
-  // Third : draw the coordinate
-  dc.DrawRectangle(m_dim);
-  dc.DrawText(m_content, m_dim.x + MARGIN_COORD + offset, m_dim.y + MARGIN_COORD);
-  if (m_series_coord)
-  {
-    textY = m_dim.y + MARGIN_COORD + textY + (textY / 2) + 2;
-    dc.SetPen(m_penSeries);
-    wxBrush sqrBrush(m_penSeries.GetColour(), wxBRUSHSTYLE_SOLID);
-    dc.SetBrush(sqrBrush);
-    dc.DrawRectangle(m_dim.x + 2, textY - (LEGEND_LINEWIDTH / 2),
-    LEGEND_LINEWIDTH, LEGEND_LINEWIDTH);
-  }
+      // Draw series square if needed
+      if (m_series_coord)
+      {
+        int sqrY = r.y + MARGIN_COORD + textY + (textY / 2) + 2;
+        dc.SetPen(m_penSeries);
+        wxBrush sqrBrush(m_penSeries.GetColour(), wxBRUSHSTYLE_SOLID);
+        dc.SetBrush(sqrBrush);
+        dc.DrawRectangle(r.x + 2, sqrY - (LEGEND_LINEWIDTH / 2), LEGEND_LINEWIDTH, LEGEND_LINEWIDTH);
+      }
+    });
 }
 
 //-----------------------------------------------------------------------------
@@ -960,7 +953,7 @@ void mpInfoLegend::DrawDraggedSeries(wxDC& dc, mpWindow &w, bool onPaint)
   wxSize textSize = dc.GetTextExtent(m_selectedSeries->GetName());
   wxRect newRect(w.GetMousePosition().x - 5, w.GetMousePosition().y - 18, textSize.x, textSize.y);
 
-  w.DrawTransientContent(dc, m_lastDragSeriesState, newRect, onPaint,
+  w.DrawTransientContent(dc, m_draggedSeriesBackground, newRect, onPaint,
     [this](wxDC& dc, const wxRect& r)
     {
       dc.SetBrush(*wxWHITE_BRUSH);
@@ -985,16 +978,16 @@ void mpInfoLegend::ClearDraggedSeries(wxDC& dc, mpWindow &w)
   }
 
   // Restore the plot area under the dragged series by blitting the background bitmap
-  if (m_lastDragSeriesState.bmp)
+  if (m_draggedSeriesBackground.bmp)
   {
-    wxMemoryDC bmpDC(*m_lastDragSeriesState.bmp);
-    dc.Blit(m_lastDragSeriesState.rect.x, m_lastDragSeriesState.rect.y, m_lastDragSeriesState.rect.width, m_lastDragSeriesState.rect.height, &bmpDC, 0, 0);
+    wxMemoryDC bmpDC(*m_draggedSeriesBackground.bmp);
+    dc.Blit(m_draggedSeriesBackground.rect.x, m_draggedSeriesBackground.rect.y, m_draggedSeriesBackground.rect.width, m_draggedSeriesBackground.rect.height, &bmpDC, 0, 0);
     bmpDC.SelectObject(wxNullBitmap);
   }
 
   // Clear rectangle and background bmp
-  m_lastDragSeriesState.rect = wxRect();
-  DeleteAndNull(m_lastDragSeriesState.bmp);
+  m_draggedSeriesBackground.rect = wxRect();
+  DeleteAndNull(m_draggedSeriesBackground.bmp);
 }
 
 int mpInfoLegend::GetPointed(mpWindow &WXUNUSED(w), wxPoint eventPoint)
@@ -3134,6 +3127,11 @@ void mpWindow::OnMouseMove(wxMouseEvent &event)
   // pan
   if (event.m_rightDown)
   {
+    // Remove info coords while paning
+    wxClientDC dc(this);
+    if (m_InfoCoords && m_InfoCoords->IsVisible())
+      m_InfoCoords->ErasePlot(dc, *this);
+
     m_mouseMovedAfterRightClick = true; // Hides the popup menu after releasing the button!
 
     // The change:
@@ -3216,11 +3214,18 @@ void mpWindow::OnMouseMove(wxMouseEvent &event)
       {
         if (m_mouseLeftDownAction == mpMouseBoxZoom)
         {
+          // Remove info coords while zooming
+          if (m_InfoCoords && m_InfoCoords->IsVisible())
+            m_InfoCoords->ErasePlot(dc, *this);
           m_boxZoomActive = true;
           DrawBoxZoom(dc, false);
         }
         else if (m_mouseLeftDownAction == mpMouseDragZoom)
         {
+          // Remove info coords while zooming
+          if (m_InfoCoords && m_InfoCoords->IsVisible())
+            m_InfoCoords->ErasePlot(dc, *this);
+
           // Continously zoom in or out by dragging the mouse across the plot
           // The amount of zoom is proportional to the moved distance and
           // scaled in a logarithmic fashion for more natural feel
@@ -3262,7 +3267,7 @@ void mpWindow::OnMouseMove(wxMouseEvent &event)
         if ((m_InfoCoords->GetDrawOutsideMargins()) || (m_PlotArea.Contains(m_mousePos)))
         {
           m_InfoCoords->UpdateInfo(*this, event);
-          m_InfoCoords->Plot(dc, *this);
+          m_InfoCoords->DrawContent(dc, *this, false);
         }
         else
           m_InfoCoords->ErasePlot(dc, *this);

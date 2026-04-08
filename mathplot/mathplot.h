@@ -1323,8 +1323,8 @@ class WXDLLIMPEXP_MATHPLOT mpInfoLayer: public mpLayer
 
   protected:
     wxRect m_dim;           //!< The bounding rectangle of the mpInfoLayer box (may be resized dynamically by the Plot method).
-    wxRect m_oldDim;        //!< Keep the old values of m_dim
     wxBitmap* m_info_bmp;   //!< The bitmap that contain the info
+    mpStoredContentBackground m_infoBackground;  //!< stores the background under the infolayer for erasing/blitting
     wxPoint m_reference;    //!< Holds the reference point for movements
     int m_winX;             //!< Cached mpWindow width, used to rescale the info box position when the window is resized.
     int m_winY;             //!< Cached mpWindow height, used to rescale the info box position when the window is resized.
@@ -1412,6 +1412,12 @@ class WXDLLIMPEXP_MATHPLOT mpInfoCoords: public mpInfoLayer
     {
       m_penSeries = pen;
     }
+
+    /** Draw the content of info coords to plot
+     @param dc the device context where to plot
+     @param w the window to plot
+     @param onPaint indicate if called from OnPaint event or not */
+    void DrawContent(wxDC &dc, mpWindow &w, bool onPaint);
 
   protected:
     wxString m_content;       //!< string holding the coordinates to be drawn.
@@ -1502,9 +1508,9 @@ class WXDLLIMPEXP_MATHPLOT mpInfoLegend: public mpInfoLayer
      @param w the window to plot */
     void ClearDraggedSeries(wxDC& dc, mpWindow &w);
 
-    mpFunction* m_selectedSeries = nullptr;             //!< the series currently selected/clicked by the user
-    mpOptional_int m_lastHoveredAxisID;                 //!< last axis ID that was hovered when dragging series
-    mpStoredContentBackground m_lastDragSeriesState;    //!< stores the background under the dragged series for erasing/blitting
+    mpFunction* m_selectedSeries = nullptr;               //!< the series currently selected/clicked by the user
+    mpOptional_int m_lastHoveredAxisID;                   //!< last axis ID that was hovered when dragging series
+    mpStoredContentBackground m_draggedSeriesBackground;  //!< stores the background under the dragged series for erasing/blitting
 
   protected:
     mpLegendStyle m_item_mode;          //!< Visual style used for each legend entry.
