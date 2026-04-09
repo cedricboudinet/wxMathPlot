@@ -3187,11 +3187,11 @@ void mpWindow::OnMouseMove(wxMouseEvent &event)
         mpOptional_int lastAxisID = m_InfoLegend->m_lastHoveredAxisID;
         if(newAxisID != lastAxisID)
         {
-          if(lastAxisID)
+          if (MP_OPTTEST(lastAxisID))
           {
             m_AxisDataYList[MP_OPTGET(lastAxisID)].axis->SetHovering(false);
           }
-          if(newAxisID)
+          if (MP_OPTTEST(newAxisID))
           {
             m_AxisDataYList[MP_OPTGET(newAxisID)].axis->SetHovering(true);
           }
@@ -3310,7 +3310,8 @@ void mpWindow::OnMouseLeftRelease(wxMouseEvent &event)
   if(m_InfoLegend && m_InfoLegend->m_selectedSeries)
   {
     // Switch Y-axis of series if it was dropped on a axis
-    if(mpOptional_int yAxisID = IsInsideYAxis(event.GetPosition()))
+    mpOptional_int yAxisID = IsInsideYAxis(event.GetPosition());
+    if (MP_OPTTEST(yAxisID))
     {
       m_InfoLegend->m_selectedSeries->SetYAxisID(MP_OPTGET(yAxisID));
     }

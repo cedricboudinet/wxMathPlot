@@ -1534,7 +1534,7 @@ class WXDLLIMPEXP_MATHPLOT mpInfoLegend: public mpInfoLayer
     void ClearDraggedSeries(wxDC& dc, mpWindow &w);
 
     mpFunction* m_selectedSeries = nullptr;               //!< the series currently selected/clicked by the user
-    mpOptional_int m_lastHoveredAxisID;                   //!< last axis ID that was hovered when dragging series
+    mpOptional_int m_lastHoveredAxisID = MP_OPTNULL_INT;  //!< last axis ID that was hovered when dragging series
     mpStoredContentBackground m_draggedSeriesBackground;  //!< stores the background under the dragged series for erasing/blitting
 
   protected:
