@@ -1224,7 +1224,7 @@ void MathPlotConfigDialog::FillYAxisList(wxChoice* yChoice, bool clearChoice)
 {
   if (clearChoice)
     yChoice->Clear();
-  for (const MP_LOOP_ITER : m_plot->GetSortedAxisDataYList())
+  for (const MP_LOOP_ITER : m_plot->GetAxisDataYList())
   {
     if (m_yData.axis)
     {

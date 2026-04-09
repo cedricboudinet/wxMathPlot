@@ -493,7 +493,7 @@ void mpInfoLayer::ErasePlot(wxDC &dc, mpWindow &WXUNUSED(w))
   if (m_infoBackground.bmp)
   {
     wxMemoryDC m_info_dc(*m_infoBackground.bmp);
-    dc.Blit(m_infoBackground.rect.x, m_infoBackground.rect.y, m_infoBackground.rect.width, m_infoBackground.rect.height, &m_info_dc, 0, 0);
+    dc.Blit(m_infoBackground.GetPosition(), m_infoBackground.GetSize(), &m_info_dc, wxPoint(0, 0));
     m_info_dc.SelectObject(wxNullBitmap);
     DeleteAndNull(m_infoBackground.bmp);
   }
@@ -552,7 +552,6 @@ void mpInfoCoords::UpdateInfo(mpWindow &w, wxEvent &event)
   if (event.GetEventType() == wxEVT_MOTION)
   {
     double xVal = 0.0, yVal = 0.0;
-    std::unordered_map<int, double> yValList;
 
     m_mouseX = ((wxMouseEvent&)event).GetX();
     m_mouseY = ((wxMouseEvent&)event).GetY();
@@ -560,7 +559,7 @@ void mpInfoCoords::UpdateInfo(mpWindow &w, wxEvent &event)
     if (m_series_coord)
     {
       mpLayer* layer = w.GetClosestPlot(m_mouseX, m_mouseY, &xVal, &yVal);
-      yValList[0] = yVal;
+      m_yValList[0] = yVal;
       if (layer)
       {
         // Just change the colour
@@ -575,7 +574,7 @@ void mpInfoCoords::UpdateInfo(mpWindow &w, wxEvent &event)
       for (MP_LOOP_ITER : w.GetAxisDataYList())
       {
         yVal = w.p2y(m_mouseY, m_yID);
-        yValList[m_yID] = yVal;
+        m_yValList[m_yID] = yVal;
       }
     }
 
@@ -586,10 +585,10 @@ void mpInfoCoords::UpdateInfo(mpWindow &w, wxEvent &event)
     for (const MP_LOOP_ITER : w.GetAxisDataYList())
     {
       if (m_win->IsLogYaxis(m_yID))
-        yValList[m_yID] = pow(10, yValList[m_yID]);
+        m_yValList[m_yID] = pow(10, m_yValList[m_yID]);
     }
 
-    m_content = GetInfoCoordsText(w, xVal, yValList);
+    m_content = GetInfoCoordsText(w, xVal, m_yValList);
   }
 }
 
@@ -644,7 +643,7 @@ wxString mpInfoCoords::GetInfoCoordsText(mpWindow &w, double xVal, std::unordere
     wxString yAxisDataWithName = _T("");
     wxString yAxisDataWithoutName = _T("");
     int nOfUsedYAxes = 0;
-    for (const MP_LOOP_ITER : w.GetSortedAxisDataYList())
+    for (const MP_LOOP_ITER : w.GetAxisDataYList())
     {
       if (w.IsYAxisUsed(m_yID))
       {
@@ -933,11 +932,11 @@ void mpInfoLegend::DoPlot(wxDC &dc, mpWindow &w)
 #ifdef _WIN32
     // Windows code
     if (m_brush.GetStyle() == wxBRUSHSTYLE_TRANSPARENT)
-      dc.Blit(m_dim.x, m_dim.y, m_dim.width, m_dim.height, &buff_dc, 0, 0, wxAND);
+      dc.Blit(m_dim.GetPosition(), m_dim.GetSize(), &buff_dc, wxPoint(0, 0), wxAND);
     else
-      dc.Blit(m_dim.x, m_dim.y, m_dim.width, m_dim.height, &buff_dc, 0, 0);
+      dc.Blit(m_dim.GetPosition(), m_dim.GetSize(), &buff_dc, wxPoint(0, 0));
 #else
-    dc.Blit(m_dim.x, m_dim.y, m_dim.width, m_dim.height, &buff_dc, 0, 0);
+    dc.Blit(m_dim.GetPosition(), m_dim.GetSize(), &buff_dc, wxPoint(0, 0));
 #endif
     buff_dc.SelectObject(wxNullBitmap);
   }
@@ -981,7 +980,7 @@ void mpInfoLegend::ClearDraggedSeries(wxDC& dc, mpWindow &w)
   if (m_draggedSeriesBackground.bmp)
   {
     wxMemoryDC bmpDC(*m_draggedSeriesBackground.bmp);
-    dc.Blit(m_draggedSeriesBackground.rect.x, m_draggedSeriesBackground.rect.y, m_draggedSeriesBackground.rect.width, m_draggedSeriesBackground.rect.height, &bmpDC, 0, 0);
+    dc.Blit(m_draggedSeriesBackground.GetPosition(), m_draggedSeriesBackground.GetSize(), &bmpDC, wxPoint(0, 0));
     bmpDC.SelectObject(wxNullBitmap);
   }
 
@@ -1257,9 +1256,7 @@ void mpFX::DoPlot(wxDC &dc, mpWindow &w)
 
   if (!m_drawOutsideMargins)
   {
-    wxRect rect(m_plotBoundaries.startPx, m_plotBoundaries.startPy, m_plotBoundaries.endPx - m_plotBoundaries.startPx,
-        m_plotBoundaries.endPy - m_plotBoundaries.startPy);
-    dc.SetClippingRegion(rect);
+    dc.SetClippingRegion(m_plotBoundaries.GetRect());
   }
 
   if (m_continuous || (m_pen.GetWidth() > 1))
@@ -1386,9 +1383,7 @@ void mpFY::DoPlot(wxDC &dc, mpWindow &w)
 
   if (!m_drawOutsideMargins)
   {
-    wxRect rect(m_plotBoundaries.startPx, m_plotBoundaries.startPy, m_plotBoundaries.endPx - m_plotBoundaries.startPx,
-        m_plotBoundaries.endPy - m_plotBoundaries.startPy);
-    dc.SetClippingRegion(rect);
+    dc.SetClippingRegion(m_plotBoundaries.GetRect());
   }
 
   if (m_continuous || (m_pen.GetWidth() > 1))
@@ -1525,9 +1520,7 @@ void mpFXY::DoPlot(wxDC &dc, mpWindow &w)
 
   if (!m_drawOutsideMargins)
   {
-    wxRect rect(m_plotBoundaries.startPx, m_plotBoundaries.startPy, m_plotBoundaries.endPx - m_plotBoundaries.startPx,
-        m_plotBoundaries.endPy - m_plotBoundaries.startPy);
-    dc.SetClippingRegion(rect);
+    dc.SetClippingRegion(m_plotBoundaries.GetRect());
   }
 
   if (!m_ViewAsBar)
@@ -3196,11 +3189,11 @@ void mpWindow::OnMouseMove(wxMouseEvent &event)
         {
           if(lastAxisID)
           {
-            m_AxisDataYList[*lastAxisID].axis->SetHovering(false);
+            m_AxisDataYList[MP_OPTGET(lastAxisID)].axis->SetHovering(false);
           }
           if(newAxisID)
           {
-            m_AxisDataYList[*newAxisID].axis->SetHovering(true);
+            m_AxisDataYList[MP_OPTGET(newAxisID)].axis->SetHovering(true);
           }
           UpdateAll();
         }
@@ -3319,7 +3312,7 @@ void mpWindow::OnMouseLeftRelease(wxMouseEvent &event)
     // Switch Y-axis of series if it was dropped on a axis
     if(mpOptional_int yAxisID = IsInsideYAxis(event.GetPosition()))
     {
-      m_InfoLegend->m_selectedSeries->SetYAxisID(*yAxisID);
+      m_InfoLegend->m_selectedSeries->SetYAxisID(MP_OPTGET(yAxisID));
     }
 
     // Clear the series dragging animation
@@ -3421,7 +3414,7 @@ void mpWindow::OnMouseLeave(wxMouseEvent &event)
   {
     m_boxZoomActive = false;
     wxMemoryDC boxZoomDC(*m_boxZoomBackground.bmp);
-    dc.Blit(m_boxZoomBackground.rect.x, m_boxZoomBackground.rect.y, m_boxZoomBackground.rect.width, m_boxZoomBackground.rect.height, &boxZoomDC, 0, 0);
+    dc.Blit(m_boxZoomBackground.GetPosition(), m_boxZoomBackground.GetSize(), &boxZoomDC, wxPoint(0, 0));
     boxZoomDC.SelectObject(wxNullBitmap);
     DeleteAndNull(m_boxZoomBackground.bmp);
   }
@@ -4155,8 +4148,7 @@ void mpWindow::DrawTransientContent(wxDC& dc, mpStoredContentBackground& backgro
   // we need to reset the stored rectangle and background bitmap
   if (onPaint)
   {
-    background.rect = wxRect();
-    DeleteAndNull(background.bmp);
+    background.Clear();
   }
 
   // We need to delete the last content to avoid a tail, by using the stored background bmp.
@@ -4170,7 +4162,7 @@ void mpWindow::DrawTransientContent(wxDC& dc, mpStoredContentBackground& backgro
   // Create union bitmap and memory DC, filled with current screen content
   wxBitmap unionBmp(unionRect.width, unionRect.height, -1);
   wxMemoryDC unionDC(unionBmp);
-  unionDC.Blit(0, 0, unionRect.width, unionRect.height, &dc, unionRect.x, unionRect.y);
+  unionDC.Blit(wxPoint(0, 0), unionRect.GetSize(), &dc, unionRect.GetPosition());
 
   // Restore previous background
   if (background.bmp)
@@ -4188,14 +4180,14 @@ void mpWindow::DrawTransientContent(wxDC& dc, mpStoredContentBackground& backgro
 
   // Update stored background under new rect
   wxMemoryDC bmpDC(*background.bmp);
-  bmpDC.Blit(0, 0, newRectInUnion.width, newRectInUnion.height, &unionDC, newRectInUnion.x, newRectInUnion.y);
+  bmpDC.Blit(wxPoint(0, 0), newRectInUnion.GetSize(), &unionDC, newRectInUnion.GetPosition());
   bmpDC.SelectObject(wxNullBitmap);
 
   // Draw content into unionDC at the specified rectangle area via callback
   drawContent(unionDC, newRectInUnion);
 
   // Blit to screen
-  dc.Blit(unionRect.x, unionRect.y, unionRect.width, unionRect.height, &unionDC, 0, 0);
+  dc.Blit(unionRect.GetPosition(), unionRect.GetSize(), &unionDC, wxPoint(0, 0));
   unionDC.SelectObject(wxNullBitmap);
 
   // Store new rect

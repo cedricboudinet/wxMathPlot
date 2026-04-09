@@ -278,6 +278,15 @@ typedef union
         wxCoord y2;
     };
     wxCoord tab[4];  //!< Alternate array-style access to the rectangle coordinates.
+
+    /**
+     * Create rectangular area defined by start and end points
+     * @return wxRect object
+     */
+    wxRect GetRect(void)
+    {
+      return wxRect(startPx, startPy, endPx - startPx, endPy - startPy);
+    }
 } mpRect;
 
 /**
@@ -629,6 +638,20 @@ struct mpStoredContentBackground
 {
   wxRect rect;
   wxBitmap* bmp = nullptr;
+
+  /// Clear the structure
+  void Clear(void)
+  {
+    rect = wxRect();
+    delete bmp;
+    bmp = nullptr;
+  }
+
+  /// return the position of the rectangle
+  wxPoint GetPosition() const { return rect.GetPosition(); }
+
+  /// return the size of the rectangle
+  wxSize GetSize() const { return rect.GetSize(); }
 };
 
 /** Command IDs used by mpWindow
@@ -1435,6 +1458,8 @@ class WXDLLIMPEXP_MATHPLOT mpInfoCoords: public mpInfoLayer
     virtual void DoPlot(wxDC &dc, mpWindow &w);
 
   private:
+    std::unordered_map<int, double> m_yValList; //!< a list of plot layer id.
+
     DECLARE_DYNAMIC_CLASS_MATHPLOT(mpInfoCoords);
 };
 
@@ -3122,7 +3147,7 @@ struct mpAxisData
 };
 
 /** Define the type for the list of axis */
-typedef std::unordered_map<int, mpAxisData> mpAxisList;
+typedef std::map<int, mpAxisData> mpAxisList;
 
 /**
  * Define the axis we want to update. Could be:
@@ -3569,14 +3594,6 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
     mpAxisList GetAxisDataYList(void) const
     {
       return m_AxisDataYList;
-    }
-
-    /** Get a sorted version of the Y-axis data map
-     @return A sorted Y-axis data map
-     */
-    std::map<int, mpAxisData> GetSortedAxisDataYList(void) const
-    {
-      return std::map<int, mpAxisData>(m_AxisDataYList.begin(), m_AxisDataYList.end());
     }
 
     /** Set current view's dimensions in device context units.
