@@ -630,30 +630,6 @@ struct mpFloatRectSimple
   }
 };
 
-/**
- * A structure to store background data used when plotting moving objects, so that
- * the background can be restored under the last drawn content
- */
-struct mpStoredContentBackground
-{
-  wxRect rect;              //!< The rectangle surrounding the backgroud area
-  wxBitmap* bmp = nullptr;  //!< The bitmap that replace the background
-
-  /// Clear the structure
-  void Clear(void)
-  {
-    rect = wxRect();
-    delete bmp;
-    bmp = nullptr;
-  }
-
-  /// return the position of the rectangle
-  wxPoint GetPosition() const { return rect.GetPosition(); }
-
-  /// return the size of the rectangle
-  wxSize GetSize() const { return rect.GetSize(); }
-};
-
 /** Command IDs used by mpWindow
  * Same order for the popup menu
  */
@@ -1301,10 +1277,10 @@ class WXDLLIMPEXP_MATHPLOT mpInfoLayer: public mpLayer
       return false;
     }
 
-    /**
-     * Just delete the bitmap of the info
-     */
-    virtual void ErasePlot(wxDC &dc, mpWindow &w);
+    /** Just delete the bitmap of the info. Not used since background bitmap is no longer needed
+     * Just keep to not break compatability with overridden functions*/
+    [[deprecated("Use Show() instead")]]
+    virtual void ErasePlot(wxDC&, mpWindow&) {};
 
     /** Is given point inside the info box rectangle?
      @param point The point to be checked
@@ -1356,7 +1332,6 @@ class WXDLLIMPEXP_MATHPLOT mpInfoLayer: public mpLayer
   protected:
     wxRect m_dim;           //!< The bounding rectangle of the mpInfoLayer box (may be resized dynamically by the Plot method).
     wxBitmap* m_info_bmp;   //!< The bitmap that contain the info
-    mpStoredContentBackground m_infoBackground;  //!< stores the background under the infolayer for erasing/blitting
     wxPoint m_reference;    //!< Holds the reference point for movements
     int m_winX;             //!< Cached mpWindow width, used to rescale the info box position when the window is resized.
     int m_winY;             //!< Cached mpWindow height, used to rescale the info box position when the window is resized.
@@ -1406,7 +1381,34 @@ class WXDLLIMPEXP_MATHPLOT mpInfoCoords: public mpInfoLayer
      @param event The event which called the update. */
     virtual void UpdateInfo(mpWindow &w, wxEvent &event);
 
-    virtual void ErasePlot(wxDC &dc, mpWindow &w);
+    /** Just delete the bitmap of the info. Not used since background bitmap is no longer needed
+     * Just keep to not break compatability with overridden functions*/
+    [[deprecated("Use Show() instead")]]
+    virtual void ErasePlot(wxDC&, mpWindow&) {};
+
+    /** Set if info coords shall be shown or hidden
+    @param show Set if shall be shown */
+    void Show(bool show)
+    {
+      m_show = show;
+    }
+
+    /** Get shown status
+     @return Indicate if shall be shown */
+    bool IsShown()
+    {
+      return m_show;
+    }
+
+    /** Check conditions if info coords shall be shown or not
+    @param plotArea Area where info coors is allowed to be rendered
+    @param mousePod Position of mouse in plot window
+    @param event Mouse event that can indicate if any button is down
+    @return Indicate if shall be shown */
+    bool ShouldBeShown(wxRect plotArea, wxPoint mousePos, wxMouseEvent &event)
+    {
+      return IsVisible() && (GetDrawOutsideMargins() || plotArea.Contains(mousePos)) && !event.ButtonIsDown(wxMOUSE_BTN_ANY);
+    }
 
     /** Set X axis label view mode.
      @param mode mpLabel_AUTO for normal labels, mpLabel_TIME for time axis in hours, minutes, seconds.
@@ -1447,11 +1449,11 @@ class WXDLLIMPEXP_MATHPLOT mpInfoCoords: public mpInfoLayer
 
     /** Draw the content of info coords to plot
      @param dc the device context where to plot
-     @param w the window to plot
-     @param onPaint indicate if called from OnPaint event or not */
-    void DrawContent(wxDC &dc, mpWindow &w, bool onPaint);
+     @param w the window to plot */
+    void DrawContent(wxDC &dc, mpWindow &w);
 
   protected:
+    bool m_show;              //!< Indicates if magnet shall be shown in plot
     wxString m_content;       //!< string holding the coordinates to be drawn.
     mpLabelType m_labelType;  //!< Label formatting mode used for the X coordinate display.
     unsigned int m_timeConv;  //!< Time conversion mode used when formatting date/time X values.
@@ -1535,16 +1537,15 @@ class WXDLLIMPEXP_MATHPLOT mpInfoLegend: public mpInfoLayer
      @param dc the device content where to plot
      @param w the window to plot
      @param onPaint indicate if it is called from OnPaint event */
-    void DrawDraggedSeries(wxDC& dc, mpWindow &w, bool onPaint);
+    void DrawDraggedSeries(wxDC& dc, mpWindow &w);
 
     /** Clear the dragged series rectangle from the plot and restores axis hovering indication
      @param dc the device content where to plot
      @param w the window to plot */
-    void ClearDraggedSeries(wxDC& dc, mpWindow &w);
+    void RestoreAxisHighlighting(mpWindow &w);
 
     mpFunction* m_selectedSeries = nullptr;               //!< the series currently selected/clicked by the user
     mpOptional_int m_lastHoveredAxisID = MP_OPTNULL_INT;  //!< last axis ID that was hovered when dragging series
-    mpStoredContentBackground m_draggedSeriesBackground;  //!< stores the background under the dragged series for erasing/blitting
 
   protected:
     mpLegendStyle m_item_mode;          //!< Visual style used for each legend entry.
@@ -3198,55 +3199,56 @@ class mpMagnet
   public:
     mpMagnet()
     {
-      m_IsDrawn = false;
-      m_rightClick = false;
-      m_IsWasDrawn = false;
+      m_enable = false;
+      m_show = false;
     }
     ~mpMagnet()
     {
       ;
     }
-    /// Update the drawable magnet area from raw rectangle coordinates.
-    void UpdateBox(wxCoord left, wxCoord top, wxCoord width, wxCoord height)
-    {
-      m_domain = wxRect(left, top, width, height);
-      m_plot_size = wxRect(left, top, width + left, height + top);
-    }
+
     /// Update the drawable magnet area from a wxRect.
-    void UpdateBox(const wxRect &size)
+    void UpdateBox(const wxRect &plotArea)
     {
-      m_domain = size;
-      m_plot_size = wxRect(size.GetLeft(), size.GetTop(),
-          size.GetWidth() + size.GetLeft(), size.GetHeight() + size.GetTop());
-    }
-    /// Draw the magnet cross at the given mouse position.
-    void Plot(wxClientDC &dc, const wxPoint &mousePos);
-    /// Erase the currently drawn magnet cross from the device context.
-    void ClearPlot(wxClientDC &dc);
-     /// Update the magnet cross to a new mouse position.
-    void UpdatePlot(wxClientDC &dc, const wxPoint &mousePos);
-    /// Save whether the magnet was drawn before a full repaint.
-    void SaveDrawState(void)
-    {
-      m_IsWasDrawn = m_IsDrawn;
-      // In any cases, set to false because we erase and repaint all the plot
-      m_IsDrawn = false;
+      m_domain = plotArea;
     }
 
-    /// Mark that the magnet update originated from a right-click.
-    void SetRightClick(void)
+    /// Enables the magnet
+    void Enable(bool enable)
     {
-      m_rightClick = true;
+      m_enable = enable;
+    }
+
+    /// Check if magnet is enabled
+    bool IsEnabled() const
+    {
+      return m_enable;
+    }
+     /// Update the magnet cross to a new mouse position.
+    void DrawCross(wxDC &dc, mpWindow &w);
+
+    /// Check conditions if magnet shall be shown
+    bool ShouldBeShown(wxPoint mousePos)
+    {
+      return m_enable && m_domain.Contains(mousePos);
+    }
+
+    /// Set if magnet shall be shown or hidden
+    void Show(bool show)
+    {
+      m_show = show;
+    }
+
+    /// Get shown status
+    bool IsShown()
+    {
+      return m_show;
     }
 
   private:
+    bool m_enable;             //!< Indicats if magnet is enabled
+    bool m_show;               //!< Indicates if magnet shall be shown in plot
     wxRect m_domain;           //!< The area delimited by axis (m_margin.left, m_margin.top, m_plotWidth, m_plotHeight)
-    wxRect m_plot_size;        //!< The coordinates for the cross (xmin, xmax), (ymin,ymax)
-    wxPoint m_mousePosition;   //!< The last position of the mouse
-    bool m_IsDrawn;            //!< Is that the cross is drawn ?
-    bool m_IsWasDrawn;         //!< Is that the cross was drawn before the OnPaint event ?
-    bool m_rightClick;         //!< Is the mouse right click ?
-    void DrawCross(wxClientDC &dc) const;
 };
 
 /** Canvas for plotting mpLayer implementations.
@@ -3727,15 +3729,6 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
     inline bool IsAspectLocked() const
     {
       return m_lockaspect;
-    }
-
-    /** Checks if we are repainting.
-     @retval TRUE
-     @retval FALSE
-     */
-    inline bool IsRepainting() const
-    {
-      return m_repainting;
     }
 
     /** Set view to fit global bounding box of all plot layers and refresh display with UpdateAll().
@@ -4325,13 +4318,13 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
      */
     bool GetMagnetize() const
     {
-      return m_magnetize;
+      return m_magnet.IsEnabled();
     }
 
     /// Enable or disable mouse-position magnet lines (cross-hairs) in the plot area.
     void SetMagnetize(bool mag)
     {
-      m_magnetize = mag;
+      m_magnet.Enable(mag);
     }
 
     /**
@@ -4361,18 +4354,6 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
       return m_mousePos;
     }
 
-    /**
-     * Draws content directly at at specified rectangle position while also clearing the last drawn
-     * content by including the last background under the content and also drawing this. Useful to
-     * draw moving objects like tooltips that follows mouse cursor without having to call Refresh()
-     * @param dc the device content where to plot
-     * @param background background data used to restore plot background under the last drawn content, to mitigate trail
-     * @param newRect rectangle in plot where to draw the content
-     * @param onPaint indicate if called from OnPaint event or not
-     * @param drawContent callback function used to draw actual new content in specified rectangle in wxDC
-     */
-    void DrawTransientContent(wxDC& dc, mpStoredContentBackground& background, wxRect newRect, bool onPaint, std::function<void(wxDC&, const wxRect&)> drawContent);
-
 #ifdef ENABLE_MP_CONFIG
     void RefreshConfigWindow();
     /**
@@ -4389,6 +4370,12 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
      */
     void DeleteConfigWindow(void);
 #endif // ENABLE_MP_CONFIG
+
+    /**
+     * Draw fast moving objects as a overlay on top of the buffered DC,
+     * without having to re-draw all layers
+     */
+    void RenderOverlays(wxDC& dc);
 
   protected:
     virtual void BindEvents(void);                                //!< Connect all events
@@ -4468,7 +4455,7 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
      * @param dc the device content where to plot
      * @param onPaint indicate if it is called from OnPaint event
      * */
-    void DrawBoxZoom(wxDC& dc, bool onPaint);
+    void DrawBoxZoom(wxDC& dc);
 
     /** Function to initialize all variables to their default values
      * This function is called in mpWindow constructor and should not be used anymore
@@ -4504,10 +4491,10 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
     mpRect m_plotBoundariesMargin;      //!< The size of the plot with the margins. Calculated
     wxRect m_PlotArea;                  //!< The full size of the plot with m_extraMargin
 
-    bool m_repainting;                  //!< Boolean value indicating that we are in repaint step
     int m_last_lx;                      //!< Last logical X origin, used for double buffering.
     int m_last_ly;                      //!< Last logical Y origin, used for double buffering.
     wxBitmap* m_buff_bmp;               //!< For double buffering
+    bool m_cacheDirty;                  //!< Indicate that the cached buffer m_buff_bmp need to be re-created
     bool m_enableDoubleBuffer;          //!< For double buffering. Default enabled
     bool m_enableMouseNavigation;       //!< For pan/zoom with the mouse.
     mpMouseButtonAction m_mouseLeftDownAction;  //!< Type of action for left mouse button
@@ -4524,9 +4511,7 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
     mpInfoLegend* m_InfoLegend;         //!< Pointer to the optional info legend layer
 
     bool m_boxZoomActive = false;       //!< Indicate if box zoom is active
-    mpStoredContentBackground m_boxZoomBackground;  //!< Stores the background under the box zoom rectangle for erasing/blitting
 
-    bool m_magnetize;                   //!< For mouse magnetization
     mpMagnet m_magnet;                  //!< For mouse magnetization
 
     wxBitmap* m_Screenshot_bmp;         //!< For clipboard, save and print
