@@ -636,8 +636,8 @@ struct mpFloatRectSimple
  */
 struct mpStoredContentBackground
 {
-  wxRect rect;
-  wxBitmap* bmp = nullptr;
+  wxRect rect;              //!< The rectangle surrounding the backgroud area
+  wxBitmap* bmp = nullptr;  //!< The bitmap that replace the background
 
   /// Clear the structure
   void Clear(void)
@@ -1078,7 +1078,7 @@ class WXDLLIMPEXP_MATHPLOT mpLayer: public wxObject
     }
 
     /** Get pen set for this layer.
-     @return Pen
+     @return const current Pen
      */
     const wxPen& GetPen() const
     {
@@ -1095,8 +1095,17 @@ class WXDLLIMPEXP_MATHPLOT mpLayer: public wxObject
         m_brush = brush;
     }
 
+    /** Set layer brush
+     @param colour colour of the brush
+     @param style style among wxBrushStyle enumeration. Default solid */
+    void SetBrush(const wxColour &colour, enum wxBrushStyle style = wxBRUSHSTYLE_SOLID)
+    {
+      m_brush.SetColour(colour);
+      m_brush.SetStyle(style);
+    }
+
     /** Get brush set for this layer.
-     @return brush. */
+     @return const current brush. */
     const wxBrush& GetBrush() const
     {
       return m_brush;
@@ -4457,7 +4466,6 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
 
     /** Draws the box zoom selection rectangle
      * @param dc the device content where to plot
-     * @param w the window to plot
      * @param onPaint indicate if it is called from OnPaint event
      * */
     void DrawBoxZoom(wxDC& dc, bool onPaint);

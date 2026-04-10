@@ -1793,8 +1793,7 @@ void MathPlotConfigDialog::Apply(int pageIndex, bool updateFont)
         CurrentCoords->SetDrawOutsideMargins(cbCoordOutside->GetValue());
         CurrentCoords->SetSeriesCoord(cbCoordinates->GetValue());
         // Brush config
-        wxBrush brush(bCoordBrushColor->GetBackgroundColour(), IdToBrushStyle(cbCoordBrushStyle->GetSelection()));
-        CurrentCoords->SetBrush(brush);
+        CurrentCoords->SetBrush(bCoordBrushColor->GetBackgroundColour(), IdToBrushStyle(cbCoordBrushStyle->GetSelection()));
       }
 
       m_plot->SetMouseLeftDownAction((mpMouseButtonAction)ChoiceLeftMouseAction->GetSelection());
@@ -1810,8 +1809,7 @@ void MathPlotConfigDialog::Apply(int pageIndex, bool updateFont)
         CurrentLegend->SetItemMode((mpLegendStyle)cbLegendStyle->GetSelection());
         CurrentLegend->SetItemDirection((mpLegendDirection)cbLegendDirection->GetSelection());
         // Brush config
-        wxBrush brush(bLegendBrushColor->GetBackgroundColour(), IdToBrushStyle(cbLegendBrushStyle->GetSelection()));
-        CurrentLegend->SetBrush(brush);
+        CurrentLegend->SetBrush(bLegendBrushColor->GetBackgroundColour(), IdToBrushStyle(cbLegendBrushStyle->GetSelection()));
 
         if (fontLegendChanged || updateFont)
         {
@@ -1940,8 +1938,7 @@ void MathPlotConfigDialog::Apply(int pageIndex, bool updateFont)
         CurrentSerie->SetPen(pen);
 
         // Brush config
-        wxBrush brush(bSeriesBrushColor->GetBackgroundColour(), IdToBrushStyle(cbSeriesBrushStyle->GetSelection()));
-        CurrentSerie->SetBrush(brush);
+        CurrentSerie->SetBrush(bSeriesBrushColor->GetBackgroundColour(), IdToBrushStyle(cbSeriesBrushStyle->GetSelection()));
 
         // Symbol config
         CurrentSerie->SetSymbol((mpSymbol)cbSeriesSymbolType->GetSelection());

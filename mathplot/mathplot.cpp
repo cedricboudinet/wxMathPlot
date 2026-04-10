@@ -146,6 +146,7 @@ static void FillI18NString()
   Help_string.Add(_(" - Wheel + SHIFT: Horizontal scroll"));
   Help_string.Add(_(" - Wheel + CTRL: Vertical scroll"));
   Help_string.Add(_(" - Left-click on the series name: show config window"));
+  Help_string.Add(_(" - Left-click on the series name + DRAG to Y-Axis: change Y-axis for the series"));
   Help_string.Add(_(" - Left-click + SHIFT on the series name: swap visibility"));
 
   MESS_LOAD = _("Select file");
@@ -518,20 +519,13 @@ mpInfoCoords::mpInfoCoords() :
   m_series_coord = false;
   // Default pen
   SetPenSeries((wxPen const&)*wxBLACK_PEN);
+  m_content = _T("");
 }
 
 mpInfoCoords::mpInfoCoords(mpLocation location) :
-    mpInfoLayer()
+    mpInfoCoords()
 {
-  m_subtype = mpiCoords;
-  m_labelType = mpLabel_AUTO;
-  m_timeConv = 0;
-  m_mouseX = m_mouseY = 0;
   m_location = location;
-  m_series_coord = false;
-  wxBrush coord(wxColour(232, 232, 232), wxBRUSHSTYLE_SOLID);
-  SetBrush(coord);
-  m_content = _T("");
 }
 
 mpInfoCoords::mpInfoCoords(wxRect rect, const wxBrush &brush, mpLocation location) :
@@ -730,7 +724,6 @@ void mpInfoCoords::DrawContent(wxDC &dc, mpWindow &w, bool onPaint)
       if (m_series_coord)
       {
         int sqrY = r.y + MARGIN_COORD + textY + (textY / 2) + 2;
-        dc.SetPen(m_penSeries);
         wxBrush sqrBrush(m_penSeries.GetColour(), wxBRUSHSTYLE_SOLID);
         dc.SetBrush(sqrBrush);
         dc.DrawRectangle(r.x + 2, sqrY - (LEGEND_LINEWIDTH / 2), LEGEND_LINEWIDTH, LEGEND_LINEWIDTH);
@@ -821,11 +814,9 @@ void mpInfoLegend::UpdateBitmap(wxDC &dc, mpWindow &w)
         {
           case mpLegendSquare:
           {
-            wxBrush sqrBrush(*wxWHITE, wxBRUSHSTYLE_SOLID);
-            sqrBrush.SetColour(lpen.GetColour());
+            wxBrush sqrBrush(lpen.GetColour(), wxBRUSHSTYLE_SOLID);
             buff_dc.SetBrush(sqrBrush);
-            buff_dc.DrawRectangle(posX, posY - (LEGEND_LINEWIDTH / 2) + 1,
-            LEGEND_LINEWIDTH, LEGEND_LINEWIDTH);
+            buff_dc.DrawRectangle(posX, posY - (LEGEND_LINEWIDTH / 2) + 1, LEGEND_LINEWIDTH, LEGEND_LINEWIDTH);
             break;
           }
 
@@ -2057,8 +2048,7 @@ void mpBarChart::DoPlot(wxDC &dc, mpWindow &w)
 void mpBarChart::SetBarColour(const wxColour &colour)
 {
   m_barColour = colour;
-  wxBrush brush(m_barColour, wxBRUSHSTYLE_SOLID);
-  SetBrush(brush);
+  SetBrush(m_barColour, wxBRUSHSTYLE_SOLID);
 }
 
 void mpBarChart::SetBarLabelPosition(int position)
@@ -5260,7 +5250,7 @@ void mpWindow::SetColourTheme(const wxColour &bgColour, const wxColour &drawColo
     {
       pen.SetColour(axesColour);
     }
-    if ((type == mpLAYER_INFO) || (type == mpLAYER_TEXT))
+    else if ((type == mpLAYER_INFO) || (type == mpLAYER_TEXT))
     {
       pen.SetColour(drawColour);
     }
