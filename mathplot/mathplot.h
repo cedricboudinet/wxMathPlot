@@ -491,7 +491,7 @@ struct [[deprecated("Deprecated! No longer used as X and Y are now separated")]]
    * Is point inside this bounding box?
    * @param px x-coordinate
    * @param py y-coordinate
-   * @param yAxisID: the y-axis ID (default 0, the first y axis)
+   * @param yAxisID the y-axis ID (default 0, the first y axis)
    */
   bool PointIsInside(double px, double py, size_t yAxisID = 0) const {
     if (yAxisID < y.size())
@@ -514,7 +514,7 @@ struct [[deprecated("Deprecated! No longer used as X and Y are now separated")]]
    * Update bounding box to include this point
    * @param px x-coordinate
    * @param py y-coordinate
-   * @param yAxisID: the y-axis ID (default 0, the first y axis)
+   * @param yAxisID the y-axis ID (default 0, the first y axis)
    */
   void UpdateBoundingBoxToInclude(double px, double py, size_t yAxisID = 0) {
     assert(yAxisID < y.size());
@@ -531,7 +531,7 @@ struct [[deprecated("Deprecated! No longer used as X and Y are now separated")]]
    * Initialize bounding box with an initial point
    * @param px x-coordinate
    * @param py y-coordinate
-   * @param yAxisID: the y-axis ID (default 0, the first y axis)
+   * @param yAxisID the y-axis ID (default 0, the first y axis)
    */
   void InitializeBoundingBox(double px, double py, size_t yAxisID = 0) {
     assert(yAxisID < y.size());
@@ -1402,7 +1402,7 @@ class WXDLLIMPEXP_MATHPLOT mpInfoCoords: public mpInfoLayer
 
     /** Check conditions if info coords shall be shown or not
     @param plotArea Area where info coors is allowed to be rendered
-    @param mousePod Position of mouse in plot window
+    @param mousePos Position of mouse in plot window
     @param event Mouse event that can indicate if any button is down
     @return Indicate if shall be shown */
     bool ShouldBeShown(wxRect plotArea, wxPoint mousePos, wxMouseEvent &event)
@@ -1534,14 +1534,13 @@ class WXDLLIMPEXP_MATHPLOT mpInfoLegend: public mpInfoLayer
     /** When a series is being dragged, draw a rectangle with its name at the mouse cursor.
      *  Will draw directly to dc via Blit to make it responsive, and also makes sure that
      *  no dragging tail stays by always storing and restoring a clean background
-     @param dc the device content where to plot
-     @param w the window to plot
-     @param onPaint indicate if it is called from OnPaint event */
+     *  @param dc the device content where to plot
+     *  @param w the window to plot
+     */
     void DrawDraggedSeries(wxDC& dc, mpWindow &w);
 
     /** Clear the dragged series rectangle from the plot and restores axis hovering indication
-     @param dc the device content where to plot
-     @param w the window to plot */
+     * @param w the window to plot */
     void RestoreAxisHighlighting(mpWindow &w);
 
     mpFunction* m_selectedSeries = nullptr;               //!< the series currently selected/clicked by the user
@@ -1678,6 +1677,7 @@ class WXDLLIMPEXP_MATHPLOT mpFunction: public mpLayer
 
     /**
      * Set the ID of the Y axis used by the function
+     * @param yAxisID: the y-axis ID
      */
     void SetYAxisID(unsigned int yAxisID)
     {
@@ -3224,6 +3224,7 @@ class mpMagnet
     {
       return m_enable;
     }
+
      /// Update the magnet cross to a new mouse position.
     void DrawCross(wxDC &dc, mpWindow &w);
 
@@ -3895,7 +3896,11 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
       return m_AxisDataYList[yAxisID].desired.max;
     }
 
-    /** Return the bounding box coordinates for the Y axis of ID yAxisID */
+    /** Return the bounding box coordinates for the Y axis of ID yAxisID
+     * @param boundX range over x axis
+     * @param boundY range over y axis located by its ID
+     * @param yAxisID the y-axis ID
+     */
     bool GetBoundingBox(mpRange<double> *boundX, mpRange<double> *boundY, int yAxisID)
     {
       if (m_AxisDataYList.count(yAxisID) == 0)
@@ -3905,7 +3910,11 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
       return true;
     }
 
-    /// Is the given point inside the current bounding box for the selected Y axis?
+    /** Is the given point inside the current bounding box for the selected Y axis?
+     * @param px x-coordinates
+     * @param py y-coordinates
+     * @param yAxisID the y-axis ID
+     */
     bool PointIsInsideBound(double px, double py, int yAxisID)
     {
       if (m_AxisDataYList.count(yAxisID) == 0)
@@ -3915,9 +3924,9 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
     }
 
     /** Ensure the bounding box includes the given point for the selected Y axis.
-     * @param px: point on x-axis
-     * @param py: point on y-axis
-     * @param yAxisID: the y-axis ID
+     * @param px point on x-axis
+     * @param py point on y-axis
+     * @param yAxisID the y-axis ID
      */
     void UpdateBoundingBoxToInclude(double px, double py, int yAxisID)
     {
@@ -3929,9 +3938,9 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
     }
 
     /* Initialize bounding box with an initial point
-     * @param px: point on x-axis
-     * @param py: point on y-axis
-     * @param yAxisID: the y-axis ID
+     * @param px point on x-axis
+     * @param py point on y-axis
+     * @param yAxisID the y-axis ID
      */
     /// Initialize the bounding box from a first point for the selected Y axis.
     void InitializeBoundingBox(double px, double py, int yAxisID)
@@ -4284,6 +4293,7 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
 
     /**
      * Get the log property (true or false) Y layer (Y axis) with a specific Y ID or false if not found
+     * @param yAxisID the y-axis ID
      */
     bool IsLogYaxis(int yAxisID)
     {
@@ -4295,7 +4305,10 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
         return false;
     }
 
-    /// Enable or disable logarithmic scaling on the X axis.
+    /**
+     * Enable or disable logarithmic scaling on the X axis.
+     * @param log if true, y-axis is logarithmic
+     */
     void SetLogXaxis(bool log)
     {
       if (m_AxisDataX.axis)
@@ -4304,6 +4317,8 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
 
     /**
      * Set the log property (true or false) for a Y layer (Y axis) given by is ID
+     * @param yAxisID the y-axis ID
+     * @param log if true, y-axis is logarithmic
      */
     void SetLogYaxis(int yAxisID, bool log)
     {
@@ -4416,8 +4431,8 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
 
     /** Zoom in or out X around a X position. Is the position is not set, it will zoom around center.
      * @param zoomIn Zoom in or zoom out boolean
-     * @param staticXpixel Optional center position
-     * */
+     * @param staticXpixel Optional center position (default MP_ZOOM_AROUND_CENTER)
+     */
     void DoZoomXCalc(bool zoomIn, wxCoord staticXpixel = MP_ZOOM_AROUND_CENTER);
 
     /** Zoom in or out Y around a Y position. Is the position is not set, it will zoom around center.
@@ -4425,36 +4440,35 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
      * @param zoomIn Zoom in or zoom out boolean
      * @param staticYpixel Optional center position
      * @param yAxisID Optional Y-axis ID used to specify which Y-axis to zoom
-     * */
+     */
     void DoZoomYCalc(bool zoomIn, wxCoord staticYpixel = MP_ZOOM_AROUND_CENTER, mpOptional_int yAxisID = MP_OPTNULL_INT);
 
     /** Set the m_scaleX directly to fixed zoom level, but also adjust m_posX to to make
      * the zoom around center
      * @param scaleX value
-     * */
+     */
     void SetScaleXAndCenter(double scaleX);
 
     /** Set the m_scaleY directly to fixed zoom level, but also adjust m_posY to to make
      * the zoom around center
      * @param scaleY value
      * @param yAxisID ID used to specify which Y-axis to set
-     * */
+     */
     void SetScaleYAndCenter(double scaleY, int yAxisID);
 
     /** zoom action
      * @param zoomIn if true then zoom in else zoom out
      * @param centerPoint the focus point on which we zoom
-     * */
+     */
     void Zoom(bool zoomIn, const wxPoint &centerPoint);
 
     /** Set bounding box 'm_bound' to contain all visible plots of this mpWindow.
-     * \return true if there valid bounding box set in m_bounds. */
+     * @return true if there valid bounding box set in m_bounds. */
     virtual bool UpdateBBox();
 
     /** Draws the box zoom selection rectangle
      * @param dc the device content where to plot
-     * @param onPaint indicate if it is called from OnPaint event
-     * */
+     */
     void DrawBoxZoom(wxDC& dc);
 
     /** Function to initialize all variables to their default values
