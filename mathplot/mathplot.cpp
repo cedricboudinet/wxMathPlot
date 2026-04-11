@@ -192,6 +192,9 @@ double mpWindow::m_zoomIncrementalFactor = 1.5;
 // See doxygen comments.
 bool mpWindow::m_DefaultLegendIsAlwaysVisible = false;
 
+// See doxygen comments.
+bool mpWindow::m_DefaultCoordIsAlwaysVisible = true;
+
 // Delete and null pointer
 #define DeleteAndNull(ptr)  \
   { if (ptr) \
@@ -628,7 +631,7 @@ wxString mpInfoCoords::GetInfoCoordsText(mpWindow &w, double xVal, std::unordere
     int nOfUsedYAxes = 0;
     for (const MP_LOOP_ITER : w.GetAxisDataYList())
     {
-      if (w.IsYAxisUsed(m_yID))
+      if (w.IsYAxisUsed(m_yID) && (m_yData.axis->IsVisible() || m_yData.axis->GetCoordIsAlwaysVisible()))
       {
         nOfUsedYAxes++;
         wxString axisName = wxString::Format(_T("y%d"), m_yID);
@@ -740,7 +743,6 @@ void mpInfoLegend::UpdateBitmap(wxDC &dc, mpWindow &w)
   buff_dc.SetFont(m_font);
   buff_dc.SetTextForeground(m_fontcolour);
 
-  buff_dc.SetPen(*wxTRANSPARENT_PEN);
   if (m_brush.GetStyle() == wxBRUSHSTYLE_TRANSPARENT)
     buff_dc.SetBrush(*wxWHITE_BRUSH);
   else
@@ -966,7 +968,7 @@ mpFunction::mpFunction(mpLayerType layerType /*=mpLAYER_PLOT*/, const wxString &
   m_continuous = false; // Default
   m_step = 1;
   SetYAxisID(yAxisID);
-  m_LegendIsAlwaysVisible = mpWindow::m_DefaultLegendIsAlwaysVisible; // preserve prior library behavior!
+  m_LegendIsAlwaysVisible = mpWindow::m_DefaultLegendIsAlwaysVisible;
   m_ZIndex = mpZIndex_PLOT;
 }
 
@@ -2155,6 +2157,8 @@ mpScale::mpScale(const wxString &name, int flags, bool grids, mpLabelType labelT
   m_timeConv = MP_X_RAWTIME;
   m_labelFormat = _T("");
   m_isLog = false;
+  m_CoordIsAlwaysVisible = mpWindow::m_DefaultCoordIsAlwaysVisible;
+
   m_ZIndex = mpZIndex_AXIS;
 }
 
@@ -2958,6 +2962,10 @@ void mpWindow::OnMouseLeftDown(wxMouseEvent &event)
   if (CheckUserMouseAction(event))
     return;
 
+#ifdef MATHPLOT_DO_LOGGING
+  wxLogMessage(_T("mpWindow::OnMouseLeftDown() X = %d , Y = %d"), event.GetX(), event.GetY());
+#endif
+
   // Store current position
   m_mouseLClick = event.GetPosition();
 
@@ -2972,9 +2980,25 @@ void mpWindow::OnMouseLeftDown(wxMouseEvent &event)
   // Indicate if mouse was inside a specific Y-axis
   m_mouseYAxisID = IsInsideYAxis(m_mouseLClick);
 
-#ifdef MATHPLOT_DO_LOGGING
-  wxLogMessage(_T("mpWindow::OnMouseLeftDown() X = %d , Y = %d"), event.GetX(), event.GetY());
-#endif
+  // We are inside an Y-axis, no need to continue test
+  if (MP_OPTTEST(m_mouseYAxisID))
+  {
+    // If shift is pressed, we just swap visibility of the axis
+    if (event.m_shiftDown)
+    {
+      mpScaleY* yAxis = (mpScaleY*)GetLayerYAxis(m_mouseYAxisID);
+      yAxis->SetVisible(false);
+      Fit();
+      if ((m_configWindow != NULL) && (m_configWindow->IsVisible()))
+      {
+        m_configWindow->Initialize(mpcpiAxis);
+//        m_configWindow->SelectChoiceSerie(serie);
+      }
+    }
+    event.Skip();
+    return;
+  }
+
   m_movingInfoLayer = IsInsideInfoLayer(m_mouseLClick);
 #ifdef MATHPLOT_DO_LOGGING
   if (m_movingInfoLayer != NULL)
@@ -2982,6 +3006,7 @@ void mpWindow::OnMouseLeftDown(wxMouseEvent &event)
     wxLogMessage(_T("mpWindow::OnMouseLeftDown() started moving layer %p"), m_movingInfoLayer);
   }
 #endif
+
 #ifdef ENABLE_MP_CONFIG
   if (m_InfoLegend && m_InfoLegend->Inside(m_mouseLClick))
   {
@@ -3098,7 +3123,7 @@ void mpWindow::OnMouseMove(wxMouseEvent &event)
 
     if(m_InfoLegend && m_InfoLegend->m_selectedSeries)
     {
-      // If a series from the legend has been clicked on, it can be drag and 
+      // If a series from the legend has been clicked on, it can be drag and
       // dropped onto an Y-axis. Request a refresh to draw it
       requestRefresh = true;
 

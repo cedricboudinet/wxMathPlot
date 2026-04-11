@@ -1707,7 +1707,7 @@ class WXDLLIMPEXP_MATHPLOT mpFunction: public mpLayer
     int m_symbolSize2;            //!< Size of the symbol div 2.
     unsigned int m_step;          //!< Step to get point to be draw. Default : 1
     int m_yAxisID;                //!< The ID of the Y axis used by the function. Equal 0 if no axis.
-    bool m_LegendIsAlwaysVisible; //!< If true, the name is visible in the legend despite the visibility of the function. Default true
+    bool m_LegendIsAlwaysVisible; //!< If true, the name is visible in the legend despite the visibility of the function. Default false
 
   private:
     DECLARE_DYNAMIC_CLASS_MATHPLOT(mpFunction);
@@ -2887,6 +2887,22 @@ class WXDLLIMPEXP_MATHPLOT mpScale: public mpLayer
       m_isLog = log;
     }
 
+    /** Set the visibility of the mouse coordinates in the info coordinates despite the visibility of the axis
+     * @param alwaysVisible if true, mouse coordinates is always visible in the info coordinates
+     */
+    void SetCoordIsAlwaysVisible(bool alwaysVisible)
+    {
+      m_CoordIsAlwaysVisible = alwaysVisible;
+    }
+
+    /** Get the visibility of the mouse coordinates in the info coordinates.
+     * @return the visibility of the mouse coordinates
+     */
+    bool GetCoordIsAlwaysVisible() const
+    {
+      return m_CoordIsAlwaysVisible;
+    }
+
   protected:
     static const wxCoord kTickSize = 4;       //!< Length of tick line
     static const wxCoord kAxisExtraSpace = 6; //!< Extra space for axis to make it look good
@@ -2902,6 +2918,7 @@ class WXDLLIMPEXP_MATHPLOT mpScale: public mpLayer
     wxString m_labelFormat;      //!< Format string used to print labels
     bool m_isLog;                //!< Is the axis a log axis ?
     bool m_hover = false;        //!< Indicate if axis is hovered by mouse while dragging a series onto it
+    bool m_CoordIsAlwaysVisible; //!< If true, the mouse coordinates is visible in the info coordinates despite the visibility of the axis. Default true
 
     /// virtual function to compute origin of the axis
     /// @param w Current window
@@ -4032,6 +4049,11 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
     {
       m_DefaultLegendIsAlwaysVisible = visible;
     }
+
+    /** This value sets the default behaviour when an axis is not visible for the mouse info coordinates display.
+     *  If true (default) the mouse coordinates is always displayed.
+     */
+    static bool m_DefaultCoordIsAlwaysVisible;
 
     /** Set window margins, creating a blank area where some kinds of layers cannot draw.
      * This is useful for example to draw axes outside the area where the plots are drawn.

@@ -507,6 +507,10 @@ MathPlotConfigDialog::MathPlotConfigDialog(wxWindow *parent, wxWindowID WXUNUSED
   cbMagnetize->SetValue(false);
   cbMagnetize->SetToolTip(_("Follow the mouse by drawing a horizontal and vertical line"));
   BoxSizer1->Add(cbMagnetize, 0, wxBOTTOM|wxLEFT|wxRIGHT|wxEXPAND, 5);
+  cbCoordDefaultVisibility = new wxCheckBox(Panel1, wxID_ANY, _("Default visibility"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator);
+  cbCoordDefaultVisibility->SetValue(true);
+  cbCoordDefaultVisibility->SetToolTip(_("By default, when checked, the mouse coordinates are always displayed even if the axis is not ploted."));
+  BoxSizer1->Add(cbCoordDefaultVisibility, 1, wxBOTTOM|wxLEFT|wxRIGHT|wxEXPAND, 5);
   StaticBoxSizer3->Add(BoxSizer1, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
   StaticBoxSizer4 = new wxStaticBoxSizer(wxHORIZONTAL, Panel1, _("Brush "));
   FlexGridSizer4 = new wxFlexGridSizer(2, 2, 0, 0);
@@ -570,7 +574,7 @@ MathPlotConfigDialog::MathPlotConfigDialog(wxWindow *parent, wxWindowID WXUNUSED
   FlexGridSizer6->Add(-1,-1,1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
   cbLegendDefaultVisibility = new wxCheckBox(Panel2, wxID_ANY, _("Default visibility"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator);
   cbLegendDefaultVisibility->SetValue(false);
-  cbLegendDefaultVisibility->SetToolTip(_("When checked, the series name is always displayed even if the series is not ploted."));
+  cbLegendDefaultVisibility->SetToolTip(_("By default, when checked, the series name is always displayed even if the series is not ploted."));
   FlexGridSizer6->Add(cbLegendDefaultVisibility, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
   BoxSizer16->Add(FlexGridSizer6, 1, wxALL|wxALIGN_TOP, 5);
   BoxSizer15 = new wxBoxSizer(wxVERTICAL);
@@ -726,6 +730,10 @@ MathPlotConfigDialog::MathPlotConfigDialog(wxWindow *parent, wxWindowID WXUNUSED
   cbLogAxis = new wxCheckBox(Panel3, wxID_ANY, _("Logarithmic axis"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator);
   cbLogAxis->SetValue(false);
   BoxSizer5->Add(cbLogAxis, 0, wxALL|wxALIGN_LEFT, 5);
+  cbMouseCoordVisible = new wxCheckBox(Panel3, wxID_ANY, _("Always show mouse coordinates"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator);
+  cbMouseCoordVisible->SetValue(true);
+  cbMouseCoordVisible->SetToolTip(_("If checked, mouse coordinates are always displayed in info coordinates"));
+  BoxSizer5->Add(cbMouseCoordVisible, 0, wxALL|wxALIGN_LEFT, 5);
   BoxSizer6->Add(BoxSizer5, 0, wxALL|wxALIGN_TOP, 2);
   sizerAxis->Add(BoxSizer6, 0, wxALL|wxEXPAND, 0);
   Panel3->SetSizer(sizerAxis);
@@ -802,8 +810,9 @@ MathPlotConfigDialog::MathPlotConfigDialog(wxWindow *parent, wxWindowID WXUNUSED
   cbTractable->SetValue(false);
   cbTractable->SetToolTip(_("Allow mouse coordinates"));
   BoxSizer11->Add(cbTractable, 1, wxALL|wxALIGN_LEFT, 3);
-  cbSeriesLegend = new wxCheckBox(Panel4, wxID_ANY, _("Hidden in the Legend"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator);
+  cbSeriesLegend = new wxCheckBox(Panel4, wxID_ANY, _("Always displayed in Legend"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator);
   cbSeriesLegend->SetValue(false);
+  cbSeriesLegend->SetToolTip(_("If checked, the name of the function is always displayed in the Legend even if the function is not plotted"));
   BoxSizer11->Add(cbSeriesLegend, 1, wxALL|wxALIGN_LEFT, 3);
   BoxSizer9->Add(BoxSizer11, 0, wxALL|wxALIGN_LEFT, 5);
   FlexGridSizer15->Add(BoxSizer9, 0, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
@@ -1052,6 +1061,7 @@ void MathPlotConfigDialog::Initialize(mpConfigPageId id)
   DoButtonColour(bBGColor, m_plot->GetbgColour());
   cbMagnetize->SetValue(m_plot->GetMagnetize());
 
+  // Mouse coordinates
   CurrentCoords = (mpInfoCoords*)m_plot->GetLayerByClassName(_T("mpInfoCoords"));
   if (CurrentCoords)
   {
@@ -1059,6 +1069,7 @@ void MathPlotConfigDialog::Initialize(mpConfigPageId id)
     cbCoordVisible->SetValue(CurrentCoords->IsVisible());
     cbCoordOutside->SetValue(CurrentCoords->GetDrawOutsideMargins());
     cbCoordinates->SetValue(CurrentCoords->IsSeriesCoord());
+    cbCoordDefaultVisibility->SetValue(m_plot->m_DefaultCoordIsAlwaysVisible);
     // Brush config
     DoButtonColour(bCoordBrushColor, CurrentCoords->GetBrush().GetColour());
     cbCoordBrushStyle->SetSelection(BrushStyleToId(CurrentCoords->GetBrush().GetStyle()));
@@ -1381,6 +1392,7 @@ void MathPlotConfigDialog::UpdateAxis(void)
   cbAxisPosition->SetSelection(CurrentScale->GetAlign() - scale_offset);
   edFormat->SetValue(CurrentScale->GetLabelFormat());
   cbLogAxis->SetValue(CurrentScale->IsLogAxis());
+  cbMouseCoordVisible->SetValue(CurrentScale->GetCoordIsAlwaysVisible());
 
   cbAxisOutside->SetValue(CurrentScale->GetDrawOutsideMargins());
 
@@ -1558,7 +1570,7 @@ void MathPlotConfigDialog::UpdateSelectedSerie(void)
   cbSeriesNamePosition->SetSelection(CurrentSerie->GetAlign() - mpALIGN_NW);
   cbSeriesNamePosition->Enable(CurrentSerie->GetShowName());
   cbTractable->SetValue(CurrentSerie->IsTractable());
-  cbSeriesLegend->SetValue(!CurrentSerie->GetLegendIsAlwaysVisible());
+  cbSeriesLegend->SetValue(CurrentSerie->GetLegendIsAlwaysVisible());
 
   cbSeriesStep->SetValue(CurrentSerie->GetStep());
 
@@ -1792,6 +1804,7 @@ void MathPlotConfigDialog::Apply(int pageIndex, bool updateFont)
         CurrentCoords->SetVisible(cbCoordVisible->GetValue());
         CurrentCoords->SetDrawOutsideMargins(cbCoordOutside->GetValue());
         CurrentCoords->SetSeriesCoord(cbCoordinates->GetValue());
+        m_plot->m_DefaultCoordIsAlwaysVisible = cbCoordDefaultVisibility->GetValue();
         // Brush config
         CurrentCoords->SetBrush(bCoordBrushColor->GetBackgroundColour(), IdToBrushStyle(cbCoordBrushStyle->GetSelection()));
       }
@@ -1862,6 +1875,7 @@ void MathPlotConfigDialog::Apply(int pageIndex, bool updateFont)
         // Update name in choice list
         ChoiceAxis->SetString(ChoiceAxis->GetCurrentSelection(), newName + edAxisName->GetValue());
         CurrentScale->SetLogAxis(cbLogAxis->GetValue());
+        CurrentScale->SetCoordIsAlwaysVisible(cbMouseCoordVisible->GetValue());
 
         CurrentScale->SetAuto(cbAutoScale->GetValue());
         edScaleMin->GetValidator()->TransferFromWindow();
@@ -1950,7 +1964,7 @@ void MathPlotConfigDialog::Apply(int pageIndex, bool updateFont)
         CurrentSerie->SetShowName(cbSeriesShowName->GetValue());
         CurrentSerie->SetAlign(cbSeriesNamePosition->GetSelection() + mpALIGN_NW);
         CurrentSerie->SetTractable(cbTractable->GetValue());
-        CurrentSerie->SetLegendIsAlwaysVisible(!cbSeriesLegend->GetValue());
+        CurrentSerie->SetLegendIsAlwaysVisible(cbSeriesLegend->GetValue());
 
         bool yAxisChange = false;
         if (ChoiceSeriesYAxis->GetSelection() != wxNOT_FOUND)

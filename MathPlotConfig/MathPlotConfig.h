@@ -270,6 +270,7 @@ class MathPlotConfigDialog: public wxDialog
     wxCheckBox* cbAxisOutside;
     wxCheckBox* cbAxisVisible;
     wxCheckBox* cbBar;
+    wxCheckBox* cbCoordDefaultVisibility;
     wxCheckBox* cbCoordOutside;
     wxCheckBox* cbCoordVisible;
     wxCheckBox* cbCoordinates;
@@ -282,6 +283,7 @@ class MathPlotConfigDialog: public wxDialog
     wxCheckBox* cbLinesVisible;
     wxCheckBox* cbLogAxis;
     wxCheckBox* cbMagnetize;
+    wxCheckBox* cbMouseCoordVisible;
     wxCheckBox* cbSeriesContinuity;
     wxCheckBox* cbSeriesLegend;
     wxCheckBox* cbSeriesOutside;

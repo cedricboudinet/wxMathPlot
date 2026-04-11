@@ -264,6 +264,16 @@
 													<flag>wxBOTTOM|wxLEFT|wxRIGHT|wxEXPAND</flag>
 													<border>5</border>
 												</object>
+												<object class="sizeritem">
+													<object class="wxCheckBox" name="" variable="cbCoordDefaultVisibility" member="yes">
+														<label>Default visibility</label>
+														<checked>1</checked>
+														<tooltip>By default, when checked, the mouse coordinates are always displayed even if the axis is not ploted.</tooltip>
+													</object>
+													<flag>wxBOTTOM|wxLEFT|wxRIGHT|wxEXPAND</flag>
+													<border>5</border>
+													<option>1</option>
+												</object>
 											</object>
 											<flag>wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL</flag>
 											<border>5</border>
@@ -442,7 +452,7 @@
 										<object class="sizeritem">
 											<object class="wxCheckBox" name="" variable="cbLegendDefaultVisibility" member="yes">
 												<label>Default visibility</label>
-												<tooltip>When checked, the series name is always displayed even if the series is not ploted.</tooltip>
+												<tooltip>By default, when checked, the series name is always displayed even if the series is not ploted.</tooltip>
 											</object>
 											<flag>wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL</flag>
 											<border>5</border>
@@ -927,6 +937,15 @@
 													<flag>wxALL|wxALIGN_LEFT</flag>
 													<border>5</border>
 												</object>
+												<object class="sizeritem">
+													<object class="wxCheckBox" name="" variable="cbMouseCoordVisible" member="yes">
+														<label>Always show mouse coordinates</label>
+														<checked>1</checked>
+														<tooltip>If checked, mouse coordinates are always displayed in info coordinates</tooltip>
+													</object>
+													<flag>wxALL|wxALIGN_LEFT</flag>
+													<border>5</border>
+												</object>
 											</object>
 											<flag>wxALL|wxALIGN_TOP</flag>
 											<border>2</border>
@@ -1162,7 +1181,8 @@
 														</object>
 														<object class="sizeritem">
 															<object class="wxCheckBox" name="" variable="cbSeriesLegend" member="yes">
-																<label>Hidden in the Legend</label>
+																<label>Always displayed in Legend</label>
+																<tooltip>If checked, the name of the function is always displayed in the Legend even if the function is not plotted</tooltip>
 															</object>
 															<flag>wxALL|wxALIGN_LEFT</flag>
 															<border>3</border>
