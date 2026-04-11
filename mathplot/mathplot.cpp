@@ -148,6 +148,7 @@ static void FillI18NString()
   Help_string.Add(_(" - Left-click on the series name: show config window"));
   Help_string.Add(_(" - Left-click on the series name + DRAG to Y-Axis: change Y-axis for the series"));
   Help_string.Add(_(" - Left-click + SHIFT on the series name: swap visibility"));
+  Help_string.Add(_(" - Left-click + SHIFT on the axis name: swap visibility"));
 
   MESS_LOAD = _("Select file");
   MESS_WILDCARD = _("Data files (*.dat)|*.dat|Csv files (csv.*)|csv.*|All files (*.*)|*.*");
@@ -2986,7 +2987,7 @@ void mpWindow::OnMouseLeftDown(wxMouseEvent &event)
     // If shift is pressed, we just swap visibility of the axis
     if (event.m_shiftDown)
     {
-      mpScaleY* yAxis = (mpScaleY*)GetLayerYAxis(m_mouseYAxisID);
+      mpScaleY* yAxis = (mpScaleY*)GetLayerYAxis(MP_OPTGET(m_mouseYAxisID));
       yAxis->SetVisible(false);
       Fit();
       if ((m_configWindow != NULL) && (m_configWindow->IsVisible()))
