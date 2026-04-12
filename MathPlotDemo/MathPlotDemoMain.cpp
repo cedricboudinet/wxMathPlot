@@ -526,7 +526,7 @@ void MathPlotDemoFrame::OnUserMouseAction(void *Sender, wxMouseEvent &event, boo
           else
           {
             CurrentPolyline->AddData(plotX, plotY, false); // Last point
-            plotWindow->Refresh();  // then refresh the plot
+            plotWindow->UpdateAll();  // then refresh the plot
           }
           cancel = true;
         }

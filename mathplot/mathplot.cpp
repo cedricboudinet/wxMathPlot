@@ -3001,16 +3001,17 @@ void mpWindow::OnMouseLeftDown(wxMouseEvent &event)
   // We are inside an Y-axis, no need to continue test
   if (MP_OPTTEST(m_mouseYAxisID))
   {
-    // If shift is pressed, we just swap visibility of the axis
+    // If shift is pressed, we just set the axis not visible
     if (event.m_shiftDown)
     {
       mpScaleY* yAxis = (mpScaleY*)GetLayerYAxis(MP_OPTGET(m_mouseYAxisID));
       yAxis->SetVisible(false);
+      UpdateAll();
       Fit();
+
       if ((m_configWindow != NULL) && (m_configWindow->IsVisible()))
       {
         m_configWindow->Initialize(mpcpiAxis);
-//        m_configWindow->SelectChoiceSerie(serie);
       }
     }
     event.Skip();
@@ -3139,7 +3140,7 @@ void mpWindow::OnMouseMove(wxMouseEvent &event)
   {
     wxPoint moveVector = m_mousePos - m_mouseLClick;
 
-    if(m_InfoLegend && m_InfoLegend->m_selectedSeries)
+    if (m_InfoLegend && m_InfoLegend->m_selectedSeries)
     {
       // If a series from the legend has been clicked on, it can be drag and
       // dropped onto an Y-axis. Request a refresh to draw it
@@ -3152,7 +3153,7 @@ void mpWindow::OnMouseMove(wxMouseEvent &event)
       // axis in a slight blue color
       mpOptional_int newAxisID = IsInsideYAxis(m_mousePos);
       mpOptional_int lastAxisID = m_InfoLegend->m_lastHoveredAxisID;
-      if(newAxisID != lastAxisID)
+      if (newAxisID != lastAxisID)
       {
         if (MP_OPTTEST(lastAxisID))
         {
@@ -3228,7 +3229,7 @@ void mpWindow::OnMouseMove(wxMouseEvent &event)
     m_magnet.Show(true);
     requestRefresh = true;
   }
-  else if(m_magnet.IsShown())
+  else if (m_magnet.IsShown())
   {
     m_magnet.Show(false);
     requestRefresh = true;
@@ -3237,20 +3238,20 @@ void mpWindow::OnMouseMove(wxMouseEvent &event)
   // Check if info coords shall be shown
   if (m_InfoCoords)
   {
-    if(m_InfoCoords->ShouldBeShown(m_PlotArea, m_mousePos, event))
+    if (m_InfoCoords->ShouldBeShown(m_PlotArea, m_mousePos, event))
     {
       m_InfoCoords->Show(true);
       m_InfoCoords->UpdateInfo(*this, event);
       requestRefresh = true;
     }
-    else if(m_InfoCoords->IsShown())
+    else if (m_InfoCoords->IsShown())
     {
       m_InfoCoords->Show(false);
       requestRefresh = true;
     }
   }
 
-  if(requestRefresh)
+  if (requestRefresh)
   {
     // Calling Refresh() without setting m_cacheDirty and without going through UpdateAll() results
     // in a very lightweight and quick OnPaint event where only mouse-related overlays are rendered
@@ -3281,7 +3282,7 @@ void mpWindow::OnMouseLeftRelease(wxMouseEvent &event)
     }
   }
 
-  if(m_InfoLegend && m_InfoLegend->m_selectedSeries)
+  if (m_InfoLegend && m_InfoLegend->m_selectedSeries)
   {
     // Switch Y-axis of series if it was dropped on a axis
     mpOptional_int yAxisID = IsInsideYAxis(event.GetPosition());
@@ -3297,7 +3298,7 @@ void mpWindow::OnMouseLeftRelease(wxMouseEvent &event)
   }
 
 #ifdef ENABLE_MP_CONFIG
-  if(m_openConfigWindowPending)
+  if (m_openConfigWindowPending)
   {
     // Legend was left clicked. Open config when released
     m_openConfigWindowPending = false;
@@ -3380,28 +3381,37 @@ void mpWindow::OnMouseLeave(wxMouseEvent &event)
   if (CheckUserMouseAction(event))
     return;
 
-  wxClientDC dc(this);
+  // Check if we need a refresh (not a full update)
+  bool needRefresh = false;
   if (m_InfoCoords && m_InfoCoords->IsVisible())
   {
     m_InfoCoords->Show(false);
-    Refresh();
+    needRefresh = true;
   }
   if (m_boxZoomActive)
   {
     m_boxZoomActive = false;
-    Refresh();
+    needRefresh = true;
   }
   if (m_magnet.IsShown())
   {
     m_magnet.Show(false);
-    Refresh();
+    needRefresh = true;
   }
-  if(m_InfoLegend && m_InfoLegend->m_selectedSeries)
+
+  // For InfoLegend, we need a full update
+  if (m_InfoLegend && m_InfoLegend->m_selectedSeries)
   {
     m_InfoLegend->m_selectedSeries = nullptr;
     m_InfoLegend->RestoreAxisHighlighting(*this);
     UpdateAll();
+    // No more need a refresh
+    needRefresh = false;
   }
+
+  // Finally, refresh if needed
+  if (needRefresh)
+    Refresh();
 }
 
 /**
@@ -4162,7 +4172,7 @@ void mpWindow::OnPaint(wxPaintEvent &WXUNUSED(event))
 
   // Only re-draw every layer if cached buffer is considered dirty, i.e. if major
   // part of the plot has changed via e.g. zoom, resize or paning operation
-  if(m_cacheDirty)
+  if (m_cacheDirty)
   {
     m_cacheDirty = false;
     // Draw background
@@ -4210,13 +4220,13 @@ void mpWindow::RenderOverlays(wxDC& dc)
   if (m_magnet.IsShown())
     m_magnet.DrawCross(dc, *this);
 
-  if(m_boxZoomActive)
+  if (m_boxZoomActive)
     DrawBoxZoom(dc);
 
   if (m_InfoCoords && m_InfoCoords->IsShown())
     m_InfoCoords->DrawContent(dc, *this);
 
-  if(m_InfoLegend && m_InfoLegend->m_selectedSeries)
+  if (m_InfoLegend && m_InfoLegend->m_selectedSeries)
     m_InfoLegend->DrawDraggedSeries(dc, *this);
 }
 

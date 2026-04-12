@@ -3837,7 +3837,6 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
      *  in the plot. Used primarily during frame resizing via OnSize so that the data
      *  stays in the same place when resizing the frame. Needs to be updated whenever
      *  m_posX, m_scaleX, m_posY or m_scaleY is updated.
-     *  Check if there is some changes
      *  @param update the axis to be updated
      */
     void UpdateDesiredBoundingBox(mpAxisUpdate update)

@@ -1921,7 +1921,10 @@ void MathPlotConfigDialog::Apply(int pageIndex, bool updateFont)
           m_plot->Fit(BoundScaleX, BoundScaleY);
         }
         else
+        {
+          m_plot->UpdateAll();
           m_plot->Fit();
+        }
 
         // Refresh page
         UpdateAxis();
@@ -1993,7 +1996,7 @@ void MathPlotConfigDialog::Apply(int pageIndex, bool updateFont)
           m_plot->Fit();
         }
         else
-          m_plot->Refresh();
+          m_plot->UpdateAll();
       }
       break;
 
@@ -2018,7 +2021,7 @@ void MathPlotConfigDialog::Apply(int pageIndex, bool updateFont)
         CurrentLine->SetVisible(cbLinesVisible->GetValue());
         CurrentLine->SetDrawOutsideMargins(cbLinesOutside->GetValue());
         CurrentLine->SetShowName(cbLinesShowName->GetValue());
-        m_plot->Refresh();
+        m_plot->UpdateAll();
       }
       break;
     default:
