@@ -681,6 +681,9 @@ void mpInfoCoords::DoPlot(wxDC&, mpWindow&)
 
 void mpInfoCoords::DrawContent(wxDC &dc, mpWindow &w)
 {
+  if (m_content.IsEmpty())
+    return;
+
   int textX = 0, textY = 0;
   int width = 0, height = 0;
   int offset = (m_series_coord) ? LEGEND_LINEWIDTH : 0;
