@@ -1800,7 +1800,8 @@ void MathPlotConfigDialog::Apply(int pageIndex, bool updateFont)
 
       if (CurrentCoords)
       {
-        CurrentCoords->SetLocation((mpLocation)cbCoord->GetSelection());
+        if(CurrentCoords->GetLocation() != (mpLocation)cbCoord->GetSelection())
+          CurrentCoords->SetLocation((mpLocation)cbCoord->GetSelection());
         CurrentCoords->SetVisible(cbCoordVisible->GetValue());
         CurrentCoords->SetDrawOutsideMargins(cbCoordOutside->GetValue());
         CurrentCoords->SetSeriesCoord(cbCoordinates->GetValue());
@@ -1817,7 +1818,8 @@ void MathPlotConfigDialog::Apply(int pageIndex, bool updateFont)
     case mpcpiLegend: // Legend page
       if (CurrentLegend)
       {
-        CurrentLegend->SetLocation((mpLocation)cbLegendPosition->GetSelection());
+        if(CurrentLegend->GetLocation() != (mpLocation)cbLegendPosition->GetSelection())
+          CurrentLegend->SetLocation((mpLocation)cbLegendPosition->GetSelection());
         CurrentLegend->SetVisible(cbLegendVisible->GetValue());
         CurrentLegend->SetItemMode((mpLegendStyle)cbLegendStyle->GetSelection());
         CurrentLegend->SetItemDirection((mpLegendDirection)cbLegendDirection->GetSelection());

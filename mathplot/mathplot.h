@@ -1288,8 +1288,9 @@ class WXDLLIMPEXP_MATHPLOT mpInfoLayer: public mpLayer
     virtual bool Inside(const wxPoint &point);
 
     /** Move the layer rectangle by given pixel deltas.
-     @param delta The wxPoint container for delta coordinates along x and y. Units are in pixels. */
-    virtual void Move(wxPoint delta);
+     @param delta The wxPoint container for delta coordinates along x and y. Units are in pixels.
+     @param w Parent mpWindow from which to obtain information */
+    virtual void Move(wxPoint delta, mpWindow &w);
 
     /** Update the rectangle reference point. Used by internal methods of mpWindow to correctly move mpInfoLayers. */
     virtual void UpdateReference();
@@ -1320,6 +1321,7 @@ class WXDLLIMPEXP_MATHPLOT mpInfoLayer: public mpLayer
     void SetLocation(mpLocation location)
     {
       m_location = location;
+      m_hasBeenManuallyMoved = false;
     }
 
     /** Return the location of the mpInfoLayer box
@@ -1333,9 +1335,10 @@ class WXDLLIMPEXP_MATHPLOT mpInfoLayer: public mpLayer
     wxRect m_dim;           //!< The bounding rectangle of the mpInfoLayer box (may be resized dynamically by the Plot method).
     wxBitmap* m_info_bmp;   //!< The bitmap that contain the info
     wxPoint m_reference;    //!< Holds the reference point for movements
-    int m_winX;             //!< Cached mpWindow width, used to rescale the info box position when the window is resized.
-    int m_winY;             //!< Cached mpWindow height, used to rescale the info box position when the window is resized.
+    double m_relX;          //!< Box X position relative window, used to rescale the info box position when the window is resized.
+    double m_relY;          //!< Box Y position relative window, used to rescale the info box position when the window is resized.
     mpLocation m_location;  //!< Location of the box in the margin. Default mpMarginNone = use coordinates
+    bool m_hasBeenManuallyMoved;  //!< Indicates if box has been moved manually with mouse
 
     /** Plot method. Can be overridden by derived classes.
      @param dc the device content where to plot
@@ -1405,9 +1408,9 @@ class WXDLLIMPEXP_MATHPLOT mpInfoCoords: public mpInfoLayer
     @param mousePos Position of mouse in plot window
     @param event Mouse event that can indicate if any button is down
     @return Indicate if shall be shown */
-    bool ShouldBeShown(wxRect plotArea, wxPoint mousePos, wxMouseEvent &event)
+    bool ShouldBeShown(wxRect plotArea, wxPoint mousePos)
     {
-      return IsVisible() && (GetDrawOutsideMargins() || plotArea.Contains(mousePos)) && !event.ButtonIsDown(wxMOUSE_BTN_ANY);
+      return IsVisible() && (GetDrawOutsideMargins() || plotArea.Contains(mousePos));
     }
 
     /** Set X axis label view mode.
@@ -1529,19 +1532,31 @@ class WXDLLIMPEXP_MATHPLOT mpInfoLegend: public mpInfoLayer
     }
 
     /// Return the index of visible layer whose legend is pointed at...
-    int GetPointed(mpWindow &w, wxPoint eventPoint);
+    int GetPointed(wxPoint eventPoint);
 
     /** When a series is being dragged, draw a rectangle with its name at the mouse cursor.
      *  Will draw directly to dc via Blit to make it responsive, and also makes sure that
      *  no dragging tail stays by always storing and restoring a clean background
-     *  @param dc the device content where to plot
-     *  @param w the window to plot
+     *  @param dc the device context where to plot
+     *  @param w Parent mpWindow from which to obtain information
      */
     void DrawDraggedSeries(wxDC& dc, mpWindow &w);
+
+    /** Draw the content of info legend to plot
+     * @param dc the device context where to plot
+     * @param w Parent mpWindow from which to obtain information */
+    void DrawContent(wxDC &dc, mpWindow &w, bool drawToCache);
 
     /** Clear the dragged series rectangle from the plot and restores axis hovering indication
      * @param w the window to plot */
     void RestoreAxisHighlighting(mpWindow &w);
+
+    /// Return codes for GetPointed() if no series was hit
+    enum HitCode : int
+    {
+      HitNone   = -1,
+      HitHeader = -2
+    };
 
     mpFunction* m_selectedSeries = nullptr;               //!< the series currently selected/clicked by the user
     mpOptional_int m_lastHoveredAxisID = MP_OPTNULL_INT;  //!< last axis ID that was hovered when dragging series
@@ -1551,7 +1566,7 @@ class WXDLLIMPEXP_MATHPLOT mpInfoLegend: public mpInfoLayer
     mpLegendDirection m_item_direction; //!< Layout direction used when arranging legend entries.
 
     /** Plot method.
-     @param dc the device content where to plot
+     @param dc the device context where to plot
      @param w the window to plot
      @sa mpLayer::Plot */
     virtual void DoPlot(wxDC &dc, mpWindow &w);
@@ -1560,11 +1575,12 @@ class WXDLLIMPEXP_MATHPLOT mpInfoLegend: public mpInfoLayer
     /// Detail of legend component for an individual plot
     struct LegendDetail
     {
-        unsigned int layerIdx; //!< index of the mpPlot in the layer list
-        wxCoord legendEnd;     //!< right side (if horizontal) or bottom side (if vertical) of the
-                               //!< area occupied by the function name and decoration
+      unsigned int layerIdx; //!< index of the mpPlot in the layer list
+      wxCoord legendEnd;     //!< right side (if horizontal) or bottom side (if vertical) of the
+                             //!< area occupied by the function name and decoration
     };
     std::vector<LegendDetail> m_LegendDetailList; //!< list (well, vector) of details for each individual plot's legend component
+    wxCoord m_headerEnd; //!< End position of header row in box, used to check if header has been clicked
     bool m_needs_update; //!< Do we need to redraw the legend bitmap? Set when a plot function changes (name, visibility, add or remove)
     /**
      * Create/update the bitmap image of this legend.
@@ -4388,6 +4404,15 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
     wxPoint GetMousePosition()
     {
       return m_mousePos;
+    }
+
+    /**
+     * Returns moving info layer
+     * @return Moving info layer
+     */
+    mpInfoLayer* GetMovingInfoLayer()
+    {
+      return m_movingInfoLayer;
     }
 
 #ifdef ENABLE_MP_CONFIG
