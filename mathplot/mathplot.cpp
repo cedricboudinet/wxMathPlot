@@ -632,17 +632,31 @@ wxString mpInfoCoords::GetInfoCoordsText(mpWindow &w, double xVal, std::unordere
     int nOfUsedYAxes = 0;
     for (const MP_LOOP_ITER : w.GetAxisDataYList())
     {
-      if (w.IsYAxisUsed(m_yID) && (m_yData.axis->IsVisible() || m_yData.axis->GetCoordIsAlwaysVisible()))
+      mpScaleY *yAxis = (mpScaleY*) m_yData.axis;
+      wxString axisName = wxString::Format(_T("y%d"), m_yID);
+
+      // If we have an axis, check if it is used and if true, check if it is visible or if we always want to display coordinates
+      if (yAxis)
       {
-        nOfUsedYAxes++;
-        wxString axisName = wxString::Format(_T("y%d"), m_yID);
-        mpScaleY* yAxis = w.GetLayerYAxis(m_yID);
-        if (yAxis != nullptr)
+        if (w.IsYAxisUsed(m_yID) && (m_yData.axis->IsVisible() || m_yData.axis->GetCoordIsAlwaysVisible()))
         {
+          nOfUsedYAxes++;
           axisName += wxString::Format(_T(" - %s"), yAxis->GetName());
+          yAxisDataWithName += wxString::Format(_T("\n%s = %g"), axisName, yValList[m_yID]);
+          if (nOfUsedYAxes == 1)
+            yAxisDataWithoutName.Printf(_T("\ny = %g"), yValList[m_yID]);
         }
-        yAxisDataWithName += wxString::Format(_T("\n%s = %g"), axisName, yValList[m_yID]);
-        yAxisDataWithoutName.Printf(_T("\ny = %g"), yValList[m_yID]);
+      }
+      else
+      {
+        // We don't have an axis, but we can still have a scale
+        if (w.IsYAxisUsed(m_yID))
+        {
+          nOfUsedYAxes++;
+          yAxisDataWithName += wxString::Format(_T("\n%s = %g"), axisName, yValList[m_yID]);
+          if (nOfUsedYAxes == 1)
+            yAxisDataWithoutName.Printf(_T("\ny = %g"), yValList[m_yID]);
+        }
       }
     }
 
@@ -4276,8 +4290,9 @@ bool mpWindow::UpdateBBox()
       {
         mpFY* fy = (mpFY*)(f);
         int yAxisID = fy->GetYAxisID();
-        bound.Update(fy->GetX(m_AxisDataYList[yAxisID].axis->GetMinScale()),
-            fy->GetX(m_AxisDataYList[yAxisID].axis->GetMaxScale()));
+        if (m_AxisDataYList[yAxisID].axis)
+          bound.Update(fy->GetX(m_AxisDataYList[yAxisID].axis->GetMinScale()),
+              fy->GetX(m_AxisDataYList[yAxisID].axis->GetMaxScale()));
       }
 
       if (firstX)
