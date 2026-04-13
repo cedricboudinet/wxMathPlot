@@ -322,12 +322,11 @@ mpInfoLayer::mpInfoLayer() :
   m_info_bmp = nullptr;
   m_brush = *wxTRANSPARENT_BRUSH;
   m_brush.SetColour(*wxWHITE);
-  m_reference.x = 0;
-  m_reference.y = 0;
-  m_winX = 1;
-  m_winY = 1;
+  m_relX = 0;
+  m_relY = 0;
   m_location = mpMarginNone;
   m_ZIndex = mpZIndex_INFO;
+  m_hasBeenManuallyMoved = false;
 }
 
 mpInfoLayer::mpInfoLayer(wxRect rect, const wxBrush &brush, mpLocation location) :
@@ -336,8 +335,8 @@ mpInfoLayer::mpInfoLayer(wxRect rect, const wxBrush &brush, mpLocation location)
   m_brush = brush;
   if (m_brush.GetStyle() == wxBRUSHSTYLE_TRANSPARENT)
     m_brush.SetColour(*wxWHITE);
-  m_reference.x = rect.x;
-  m_reference.y = rect.y;
+  m_dim.x = rect.x;
+  m_dim.y = rect.y;
   m_location = location;
 }
 
@@ -366,56 +365,57 @@ bool mpInfoLayer::Inside(const wxPoint &point)
 #endif
 }
 
-void mpInfoLayer::Move(wxPoint delta)
+void mpInfoLayer::Move(wxPoint delta, mpWindow &w)
 {
-  m_dim.SetX(m_reference.x + delta.x);
-  m_dim.SetY(m_reference.y + delta.y);
+  // Calculate new box position a distance relative to stored reference position
+  // and clamp it so it stays within plot window
+  wxCoord x = (m_reference.x + delta.x);
+  wxCoord y = (m_reference.y + delta.y);
+  x = std::clamp(x, 0, w.GetScreenX() - m_dim.width);
+  y = std::clamp(y, 0, w.GetScreenY() - m_dim.height);
+
+  // Store the position as a percentage relativ the plot screen and the
+  // center of the box, so that it's position stays relative to the plot
+  // when resizing window
+  m_relX = (x + 0.5 * m_dim.width) / w.GetScreenX();
+  m_relY = (y + 0.5 * m_dim.height) / w.GetScreenY();
+  m_hasBeenManuallyMoved = true;
 }
 
 void mpInfoLayer::UpdateReference()
 {
-  m_reference.x = m_dim.x;
-  m_reference.y = m_dim.y;
+  m_reference = m_dim.GetPosition();
 }
 
 void mpInfoLayer::SetInfoRectangle(mpWindow &w, int width, int height)
 {
   // Adjust relative position inside the window
-  int scrx = w.GetScreenX();
-  int scry = w.GetScreenY();
+  int screenWidth = w.GetScreenX();
+  int screenHeight = w.GetScreenY();
+
   // Avoid dividing by 0
-  if (scrx == 0)
-    scrx = 1;
-  if (scry == 0)
-    scry = 1;
+  if (screenWidth == 0)
+    screenWidth = 1;
+  if (screenHeight == 0)
+    screenHeight = 1;
 
   if (width != 0)
     m_dim.width = width;
-  if (m_dim.width > scrx)
-    m_dim.width = scrx;
+  if (m_dim.width > screenWidth)
+    m_dim.width = screenWidth;
   if (height != 0)
     m_dim.height = height;
-  if (m_dim.height > scry)
-    m_dim.height = scry;
+  if (m_dim.height > screenHeight)
+    m_dim.height = screenHeight;
 
-  if (m_location == mpMarginNone)
+  if (m_location == mpMarginNone || m_hasBeenManuallyMoved)
   {
-    if ((m_winX != scrx) || (m_winY != scry))
-    {
-#ifdef MATHPLOT_DO_LOGGING
-//      wxLogMessage(_T("mpInfoLayer::Plot() screen size has changed from %d x %d to %d x %d"), m_winX, m_winY, scrx, scry);
-#endif
-      if (m_winX != 1)
-        m_dim.x = (int)floor((double)(m_dim.x * scrx / m_winX));
-      if (m_winY != 1)
-      {
-        m_dim.y = (int)floor((double)(m_dim.y * scry / m_winY));
-        UpdateReference();
-      }
-      // Finally update window size
-      m_winX = scrx;
-      m_winY = scry;
-    }
+    // If box has no fixed position or it has been moved, position it as a percentage
+    // relative the screen size
+    m_dim.x = (int)(m_relX * screenWidth - 0.5 * m_dim.width);
+    m_dim.y = (int)(m_relY * screenHeight - 0.5 * m_dim.height);
+    m_dim.x = std::clamp(m_dim.x, 0, screenWidth - m_dim.width);
+    m_dim.y = std::clamp(m_dim.y, 0, screenHeight - m_dim.height);
   }
   else
   {
@@ -740,6 +740,7 @@ mpInfoLegend::mpInfoLegend() :
   m_item_direction = mpVertical;
   m_location = mpMarginBottomCenter;
   m_needs_update = true;
+  m_headerEnd = 0;
 }
 
 mpInfoLegend::mpInfoLegend(wxRect rect, const wxBrush &brush, mpLocation location) :
@@ -749,6 +750,7 @@ mpInfoLegend::mpInfoLegend(wxRect rect, const wxBrush &brush, mpLocation locatio
   m_item_mode = mpLegendLine;
   m_item_direction = mpVertical;
   m_needs_update = true;
+  m_headerEnd = 0;
 }
 
 void mpInfoLegend::UpdateBitmap(wxDC &dc, mpWindow &w)
@@ -767,9 +769,18 @@ void mpInfoLegend::UpdateBitmap(wxDC &dc, mpWindow &w)
     buff_dc.SetBrush(m_brush);
   buff_dc.DrawRectangle(0, 0, w.GetScreenX(), w.GetScreenY());
 
-  int posX = 0, posY = 0; // position of the current label
-  int width = 0, height = 0; // accumulated dimensions of complete legend
-  bool first = true;
+  // Start with a header with a drag symbol used to move legend with mouse
+  wxString headerString = wxString::FromUTF8("≡");  // "Hamburger" symbol used for grip
+  wxSize headerSize = dc.GetTextExtent(headerString);
+  m_headerEnd = headerSize.y;
+  int posX = MARGIN_LEGEND;
+  int posY = 0;
+  buff_dc.DrawText(headerString, posX, posY);
+
+  // Move Y down so legend items start below header
+  posY += m_headerEnd + headerSize.y / 2;
+  int height = posY + headerSize.y;
+  int width = 0;
 
   // Get plot series names and create new bitmap legend
   m_LegendDetailList.clear();
@@ -792,15 +803,6 @@ void mpInfoLegend::UpdateBitmap(wxDC &dc, mpWindow &w)
           lfont.MakeStrikethrough();
         buff_dc.SetFont(lfont);
         buff_dc.GetTextExtent(label, &labelWidth, &labelHeight);
-
-        if (first)
-        {
-          posX = MARGIN_LEGEND;
-          posY = MARGIN_LEGEND + (labelHeight / 2);
-          // Since labelHeight is constant (all label layers use same legend font), we can initialise height of the legend bitmap
-          height = posY + labelHeight;
-          first = false;
-        }
 
         // Draw the decoration
         switch (m_item_mode)
@@ -900,6 +902,18 @@ void mpInfoLegend::UpdateBitmap(wxDC &dc, mpWindow &w)
 
 void mpInfoLegend::DoPlot(wxDC &dc, mpWindow &w)
 {
+  DrawContent(dc, w, true);
+}
+
+void mpInfoLegend::DrawContent(wxDC &dc, mpWindow &w, bool drawToCache)
+{
+  if((this == w.GetMovingInfoLayer()) && drawToCache)
+  {
+    // If this infoLegend is being moved, don't render it as a normal layer which is stored do cache bmp.
+    // Instead it will be rendered as a overlay in RenderOverlays(), which is designed for moving objects
+    return;
+  }
+
   if (m_needs_update)
     UpdateBitmap(dc, w);
   else
@@ -950,23 +964,31 @@ void mpInfoLegend::RestoreAxisHighlighting(mpWindow &w)
   }
 }
 
-int mpInfoLegend::GetPointed(mpWindow &WXUNUSED(w), wxPoint eventPoint)
+int mpInfoLegend::GetPointed(wxPoint eventPoint)
 {
+  if(!Inside(eventPoint))
+    return HitNone;
+
+  // First check if mouse hovers header
+  wxCoord mouseY = eventPoint.y - m_dim.y;
+  if (mouseY >= 0 && mouseY < m_headerEnd)
+    return HitHeader;
+
   // Adjust clicked point coordinates for legend bitmap's offset within plot area
   wxCoord side;
   if (m_item_direction == mpVertical)
     side = eventPoint.y - m_dim.y;
   else
     side = eventPoint.x - m_dim.x;
+
   // Find which series legend we have clicked
   // We only need test against right or bottom side of the rectangle (stored in UpdateBitmap function).
-  for (std::vector<LegendDetail>::iterator it = m_LegendDetailList.begin(); it != m_LegendDetailList.end(); it++)
+  for (LegendDetail& ld : m_LegendDetailList)
   {
-    const LegendDetail& ld = *it;
     if (side < ld.legendEnd)
       return ld.layerIdx;
   }
-  return -1;
+  return HitNone;
 }
 
 //-----------------------------------------------------------------------------
@@ -2941,7 +2963,7 @@ void mpWindow::InitParameters()
   m_enableMouseNavigation = true;
   m_mouseMovedAfterRightClick = false;
   m_mouseYAxisID = MP_OPTNULL_INT;
-  m_movingInfoLayer = NULL;
+  m_movingInfoLayer = nullptr;
   m_InfoCoords = NULL;
   m_InfoLegend = NULL;
   m_enableScrollBars = false;
@@ -3014,11 +3036,14 @@ void mpWindow::OnMouseLeftDown(wxMouseEvent &event)
         m_configWindow->Initialize(mpcpiAxis);
       }
     }
-    event.Skip();
-    return;
   }
 
   m_movingInfoLayer = IsInsideInfoLayer(m_mouseLClick);
+  if(m_movingInfoLayer)
+  {
+    m_movingInfoLayer->UpdateReference();
+    UpdateAll();
+  }
 #ifdef MATHPLOT_DO_LOGGING
   if (m_movingInfoLayer != NULL)
   {
@@ -3027,10 +3052,10 @@ void mpWindow::OnMouseLeftDown(wxMouseEvent &event)
 #endif
 
 #ifdef ENABLE_MP_CONFIG
-  if (m_InfoLegend && m_InfoLegend->Inside(m_mouseLClick))
+  if (m_InfoLegend)
   {
-    int select = m_InfoLegend->GetPointed(*this, m_mouseLClick);
-    if (select != -1)
+    int select = m_InfoLegend->GetPointed(m_mouseLClick);
+    if (select >= 0)
     {
       // If shift is pressed, we just swap visibility of the series
       // @sa m_DefaultLegendIsAlwaysVisible
@@ -3057,6 +3082,7 @@ void mpWindow::OnMouseLeftDown(wxMouseEvent &event)
         m_InfoLegend->m_selectedSeries = (mpFunction*)GetLayerPlot(select);
         m_openConfigWindowPending = true;
         m_infoLegendSelectedSeries = select;
+        m_movingInfoLayer = nullptr;  // Do not allow moving
       }
     }
   }
@@ -3098,6 +3124,7 @@ void mpWindow::OnMouseMove(wxMouseEvent &event)
 
   bool requestRefresh = false;
   bool showMagnet = false;
+  bool showInfoCoord = false;
 
   // pan
   if (event.m_rightDown)
@@ -3170,7 +3197,9 @@ void mpWindow::OnMouseMove(wxMouseEvent &event)
     }
     else if (m_movingInfoLayer)
     {
-      m_movingInfoLayer->Move(moveVector);
+      m_movingInfoLayer->Move(moveVector, *this);
+      showInfoCoord = true;
+      requestRefresh = true;
     }
     else if (m_mouseLeftDownAction == mpMouseBoxZoom)
     {
@@ -3215,12 +3244,16 @@ void mpWindow::OnMouseMove(wxMouseEvent &event)
     // Mouse move on legend
     if (m_InfoLegend && m_InfoLegend->IsVisible())
     {
-      if (m_InfoLegend->Inside(m_mousePos))
+      int select = m_InfoLegend->GetPointed(m_mousePos);
+      if(select == m_InfoLegend->HitHeader)
+        SetCursor(wxCursor(wxCURSOR_SIZING));
+      else if(select >= 0)
         SetCursor(wxCursor(wxCURSOR_HAND));
       else
         SetCursor(*wxSTANDARD_CURSOR);
     }
     showMagnet = true;
+    showInfoCoord = true;
   }
 
   // Check if magnet shall be shown
@@ -3238,7 +3271,7 @@ void mpWindow::OnMouseMove(wxMouseEvent &event)
   // Check if info coords shall be shown
   if (m_InfoCoords)
   {
-    if (m_InfoCoords->ShouldBeShown(m_PlotArea, m_mousePos, event))
+    if (showInfoCoord && m_InfoCoords->ShouldBeShown(m_PlotArea, m_mousePos))
     {
       m_InfoCoords->Show(true);
       m_InfoCoords->UpdateInfo(*this, event);
@@ -3266,10 +3299,10 @@ void mpWindow::OnMouseLeftRelease(wxMouseEvent &event)
   if (CheckUserMouseAction(event))
     return;
 
-  if (m_movingInfoLayer != NULL)
+  if (m_movingInfoLayer)
   {
-    m_movingInfoLayer->UpdateReference();
-    m_movingInfoLayer = NULL;
+    m_movingInfoLayer = nullptr;
+    UpdateAll();
   }
   else if (m_mouseLeftDownAction == mpMouseBoxZoom && m_boxZoomActive)
   {
@@ -3381,8 +3414,9 @@ void mpWindow::OnMouseLeave(wxMouseEvent &event)
   if (CheckUserMouseAction(event))
     return;
 
-  // Check if we need a refresh (not a full update)
+  // Check if we need a refresh or a full update
   bool needRefresh = false;
+  bool needUpdateAll = false;
   if (m_InfoCoords && m_InfoCoords->IsVisible())
   {
     m_InfoCoords->Show(false);
@@ -3404,13 +3438,19 @@ void mpWindow::OnMouseLeave(wxMouseEvent &event)
   {
     m_InfoLegend->m_selectedSeries = nullptr;
     m_InfoLegend->RestoreAxisHighlighting(*this);
-    UpdateAll();
-    // No more need a refresh
-    needRefresh = false;
+    needUpdateAll = true;
   }
 
-  // Finally, refresh if needed
-  if (needRefresh)
+  if (m_movingInfoLayer)
+  {
+    m_movingInfoLayer = nullptr;
+    needUpdateAll = true;
+  }
+
+  // Finally, refresh or update all if needed
+  if (needUpdateAll)
+    UpdateAll();
+  else if (needRefresh)
     Refresh();
 }
 
@@ -4059,7 +4099,7 @@ void mpWindow::DelAllLayers(mpDeleteAction alsoDeleteObject, bool refreshDisplay
   }
   m_InfoCoords = NULL;
   m_InfoLegend = NULL;
-  m_movingInfoLayer = NULL;
+  m_movingInfoLayer = nullptr;
   m_AxisDataX.axis = NULL;
   m_AxisDataYList.clear();
   if (refreshDisplay)
@@ -4228,6 +4268,9 @@ void mpWindow::RenderOverlays(wxDC& dc)
 
   if (m_InfoLegend && m_InfoLegend->m_selectedSeries)
     m_InfoLegend->DrawDraggedSeries(dc, *this);
+
+  if(m_InfoLegend && m_movingInfoLayer == m_InfoLegend)
+    m_InfoLegend->DrawContent(dc, *this, false);
 }
 
 void mpWindow::SetMPScrollbars(bool status)
@@ -4888,14 +4931,14 @@ mpOptional_int mpWindow::IsInsideYAxis(const wxPoint &point)
 
 mpInfoLayer* mpWindow::IsInsideInfoLayer(const wxPoint &point)
 {
-  for (mpLayerList::iterator it = m_layers.begin(); it != m_layers.end(); it++)
+  for (mpLayer* layer : m_layers)
   {
 #ifdef MATHPLOT_DO_LOGGING
     wxLogMessage(_T("mpWindow::IsInsideInfoLayer() examinining layer = %p"), (*it));
 #endif // MATHPLOT_DO_LOGGING
-    if ((*it)->GetLayerType() == mpLAYER_INFO)
+    if (layer->GetLayerType() == mpLAYER_INFO)
     {
-      mpInfoLayer* tmpLyr = (mpInfoLayer*)(*it);
+      mpInfoLayer* tmpLyr = (mpInfoLayer*)layer;
 #ifdef MATHPLOT_DO_LOGGING
       wxLogMessage(_T("mpWindow::IsInsideInfoLayer() layer = %p"), (*it));
 #endif // MATHPLOT_DO_LOGGING
@@ -4905,7 +4948,7 @@ mpInfoLayer* mpWindow::IsInsideInfoLayer(const wxPoint &point)
       }
     }
   }
-  return NULL;
+  return nullptr;
 }
 
 void mpWindow::SetLayerVisible(const wxString &name, bool viewable)
