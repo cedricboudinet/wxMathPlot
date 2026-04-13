@@ -1532,8 +1532,12 @@ class WXDLLIMPEXP_MATHPLOT mpInfoLegend: public mpInfoLayer
       m_needs_update = true;
     }
 
-    /// Return the index of visible layer whose legend is pointed at...
-    int GetPointed(wxPoint eventPoint);
+    /** Checks if mouse is inside legend and if it hovers the header or any of the series
+     * If a series is hovered, return its index. If the header is hovered, return HitHeader,
+     * otherwise return HitNone
+     * @param eventPoint The mouse position
+     * @return Index of series or header hit */
+    int GetLegendHitRegion(wxPoint mousePos);
 
     /** When a series is being dragged, draw a rectangle with its name at the mouse cursor.
      *  Will draw directly to dc via Blit to make it responsive, and also makes sure that
@@ -1553,7 +1557,7 @@ class WXDLLIMPEXP_MATHPLOT mpInfoLegend: public mpInfoLayer
      * @param w the window to plot */
     void RestoreAxisHighlighting(mpWindow &w);
 
-    /// Return codes for GetPointed() if no series was hit
+    /// Return codes for GetLegendHitRegion() if no series was hit
     enum HitCode : int
     {
       HitNone   = -1,
