@@ -4079,6 +4079,16 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
      */
     static bool m_DefaultCoordIsAlwaysVisible;
 
+
+    /**
+     * Set if plot shall be auto fitted when hiding or showing axis and series via mouse
+     * @param autoFit Sets auto fit
+     */
+    void SetAutoFit(bool autoFit)
+    {
+      m_autoFit = autoFit;
+    }
+
     /** Set window margins, creating a blank area where some kinds of layers cannot draw.
      * This is useful for example to draw axes outside the area where the plots are drawn.
      @param top Top border
@@ -4584,11 +4594,12 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
     std::unordered_map<int, double> m_mouseScaleYList;  //!< Store current Y-scales, used as reference during drag zooming
     mpOptional_int m_mouseYAxisID;      //!< Indicate which ID of Y-axis the mouse was on during zoom/pan
     bool m_enableScrollBars;            //!< Enable scrollbar in plot window (default false)
+    bool m_autoFit;                     //!< Automatically fit plot when hiding / showing axis and series
     mpInfoLayer* m_movingInfoLayer;     //!< For moving info layers over the window area
     mpInfoCoords* m_InfoCoords;         //!< Pointer to the optional info coords layer
     mpInfoLegend* m_InfoLegend;         //!< Pointer to the optional info legend layer
 
-    bool m_boxZoomActive = false;       //!< Indicate if box zoom is active
+    bool m_boxZoomActive;               //!< Indicate if box zoom is active
 
     mpMagnet m_magnet;                  //!< For mouse magnetization
 

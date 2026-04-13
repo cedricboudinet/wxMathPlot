@@ -238,6 +238,7 @@ class MathPlotConfigDialog: public wxDialog
     void OnbDelLinesClick(wxCommandEvent& event);
     void OnbDelAxisClick(wxCommandEvent& event);
     void OncbSeriesShowNameClick(wxCommandEvent& event);
+    void OnbApplyAndFitClick(wxCommandEvent& event);
     //*)
 
     //(*Identifiers(MathPlotConfigDialog)
@@ -251,6 +252,7 @@ class MathPlotConfigDialog: public wxDialog
     wxButton* bAddXAxis;
     wxButton* bAddYAxis;
     wxButton* bApply;
+    wxButton* bApplyAndFit;
     wxButton* bAxisPenColor;
     wxButton* bBGColor;
     wxButton* bClose;
