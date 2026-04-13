@@ -3456,11 +3456,18 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
      */
     void RefreshLegend(void);
 
-    /*! Check if a specific Y-axis exists or is used by any function
+    /*! Check if a specific Y-axis exists and is visible or is used by any function
      @param yAxisID ID of Y axis to check
      @return True if specified Y-axis is used, false otherwise
      */
     bool IsYAxisUsed(int yAxisID);
+
+    /*! Check if a specific Y-axis is used by at least one function
+     @param yAxisID ID of Y axis to check
+     @param position get the position in the list of function if found
+     @return True if specified Y-axis is used, false otherwise
+     */
+    bool IsYAxisUsedByFunction(int yAxisID, int *position);
 
     /*! Get the first scale X layer (X axis).
      @return A pointer to the mpScaleX object, or NULL if not found.

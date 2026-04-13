@@ -624,53 +624,42 @@ wxString mpInfoCoords::GetInfoCoordsText(mpWindow &w, double xVal, std::unordere
   }
 
   // Format Y part
-  if (m_series_coord)
+  // If we show the nearest plotted series value or we have just one Y axis (Visible or not)
+  if ((m_series_coord) || (w.GetAxisDataYList().size() == 1))
   {
     result.Printf(_T("%s\ny = %g"), result, yValList[0]);
   }
   else
   {
-    wxString yAxisDataWithName = _T("");
-    wxString yAxisDataWithoutName = _T("");
-    int nOfUsedYAxes = 0;
+    wxString yAxisDataName = _T("");
     for (const MP_LOOP_ITER : w.GetAxisDataYList())
     {
-      mpScaleY *yAxis = (mpScaleY*) m_yData.axis;
-      wxString axisName = wxString::Format(_T("y%d"), m_yID);
-
-      // If we have an axis, check if it is used and if true, check if it is visible or if we always want to display coordinates
-      if (yAxis)
+      int pos;
+      // If the Y-Axis is not used, don't display its coordinates
+      if (w.IsYAxisUsedByFunction(m_yID, &pos))
       {
-        if (w.IsYAxisUsed(m_yID) && (m_yData.axis->IsVisible() || m_yData.axis->GetCoordIsAlwaysVisible()))
+        mpScaleY* yAxis = (mpScaleY*) m_yData.axis;
+        wxString axisName = wxString::Format(_T("y%d"), m_yID);
+        if (yAxis)
         {
-          nOfUsedYAxes++;
-          axisName += wxString::Format(_T(" - %s"), yAxis->GetName());
-          yAxisDataWithName += wxString::Format(_T("\n%s = %g"), axisName, yValList[m_yID]);
-          if (nOfUsedYAxes == 1)
-            yAxisDataWithoutName.Printf(_T("\ny = %g"), yValList[m_yID]);
+          if (yAxis->GetCoordIsAlwaysVisible() || yAxis->IsVisible())
+          {
+            axisName += wxString::Format(_T(" - %s"), yAxis->GetName());
+            yAxisDataName += wxString::Format(_T("\n%s = %g"), axisName, yValList[m_yID]);
+          }
         }
-      }
-      else
-      {
-        // We don't have an axis, but we can still have a scale
-        if (w.IsYAxisUsed(m_yID))
+        else
         {
-          nOfUsedYAxes++;
-          yAxisDataWithName += wxString::Format(_T("\n%s = %g"), axisName, yValList[m_yID]);
-          if (nOfUsedYAxes == 1)
-            yAxisDataWithoutName.Printf(_T("\ny = %g"), yValList[m_yID]);
+          yAxisDataName += wxString::Format(_T("\n%s = %g"), axisName, yValList[m_yID]);
         }
       }
     }
 
-    if (nOfUsedYAxes > 1)
-    {
-      result += yAxisDataWithName;
-    }
+    // If we have no Y-Axis name, use the first Y-Axis
+    if (yAxisDataName.IsEmpty())
+      result.Printf(_T("%s\ny = %g"), result, yValList[0]);
     else
-    {
-      result += yAxisDataWithoutName;
-    }
+      result += yAxisDataName;
   }
 
   return result;
@@ -4834,6 +4823,27 @@ void mpWindow::RefreshLegend(void)
   mpInfoLegend* legend = (mpInfoLegend*)GetLayerByClassName(_T("mpInfoLegend"));
   if (legend)
     legend->SetNeedUpdate();
+}
+
+bool mpWindow::IsYAxisUsedByFunction(int yAxisID, int *position)
+{
+  // Search if there is at least one series that use this Y-Axis
+  int pos = 0;
+  for (mpLayer* layer : m_layers)
+  {
+    int subType;
+    if (layer->IsLayerType(mpLAYER_PLOT, &subType))
+    {
+      mpFunction* function = dynamic_cast<mpFunction*>(layer);
+      if (function && (function->GetYAxisID() == yAxisID))
+      {
+        *position = pos;
+        return true;
+      }
+      pos++;
+    }
+  }
+  return false;
 }
 
 bool mpWindow::IsYAxisUsed(int yAxisID)
