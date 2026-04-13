@@ -1351,6 +1351,8 @@ class WXDLLIMPEXP_MATHPLOT mpInfoLayer: public mpLayer
     void SetInfoRectangle(mpWindow &w, int width = 0, int height = 0);
 
   private:
+    double clamp(double v, double min, double max);
+
     DECLARE_DYNAMIC_CLASS_MATHPLOT(mpInfoLayer);
 };
 

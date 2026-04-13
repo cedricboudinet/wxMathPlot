@@ -345,6 +345,15 @@ mpInfoLayer::~mpInfoLayer()
   DeleteAndNull(m_info_bmp);
 }
 
+double mpInfoLayer::clamp(double v, double min, double max)
+{
+#if (defined(__cplusplus) && (__cplusplus > 201402L)) // C++17 or newer
+  return std::clamp(v, min, max);
+#else
+  return std::min(max, std::max(min, v));
+#endif
+}
+
 void mpInfoLayer::SetVisible(bool show)
 {
   m_visible = show;
@@ -371,8 +380,8 @@ void mpInfoLayer::Move(wxPoint delta, mpWindow &w)
   // and clamp it so it stays within plot window
   wxCoord x = (m_reference.x + delta.x);
   wxCoord y = (m_reference.y + delta.y);
-  x = std::clamp(x, 0, w.GetScreenX() - m_dim.width);
-  y = std::clamp(y, 0, w.GetScreenY() - m_dim.height);
+  x = clamp(x, 0, w.GetScreenX() - m_dim.width);
+  y = clamp(y, 0, w.GetScreenY() - m_dim.height);
 
   // Store the position as a percentage relativ the plot screen and the
   // center of the box, so that it's position stays relative to the plot
@@ -400,13 +409,9 @@ void mpInfoLayer::SetInfoRectangle(mpWindow &w, int width, int height)
     screenHeight = 1;
 
   if (width != 0)
-    m_dim.width = width;
-  if (m_dim.width > screenWidth)
-    m_dim.width = screenWidth;
+    m_dim.width = std::min(width, screenWidth);
   if (height != 0)
-    m_dim.height = height;
-  if (m_dim.height > screenHeight)
-    m_dim.height = screenHeight;
+    m_dim.height = std::min(height, screenHeight);
 
   if (m_location == mpMarginNone || m_hasBeenManuallyMoved)
   {
@@ -414,8 +419,8 @@ void mpInfoLayer::SetInfoRectangle(mpWindow &w, int width, int height)
     // relative the screen size
     m_dim.x = (int)(m_relX * screenWidth - 0.5 * m_dim.width);
     m_dim.y = (int)(m_relY * screenHeight - 0.5 * m_dim.height);
-    m_dim.x = std::clamp(m_dim.x, 0, screenWidth - m_dim.width);
-    m_dim.y = std::clamp(m_dim.y, 0, screenHeight - m_dim.height);
+    m_dim.x = clamp(m_dim.x, 0, screenWidth - m_dim.width);
+    m_dim.y = clamp(m_dim.y, 0, screenHeight - m_dim.height);
   }
   else
   {
@@ -3307,9 +3312,9 @@ void mpWindow::OnMouseLeftRelease(wxMouseEvent &event)
   else if (m_mouseLeftDownAction == mpMouseBoxZoom && m_boxZoomActive)
   {
     m_boxZoomActive = false;
-    wxPoint release(event.GetX(), event.GetY());
+    wxPoint release(event.GetPosition());
     // Zoom if we have a real rectangle
-    if ((release.x != m_mouseLClick.x) && (release.y != m_mouseLClick.y))
+    if (release != m_mouseLClick)
     {
       ZoomRect(m_mouseLClick, release);
     }
