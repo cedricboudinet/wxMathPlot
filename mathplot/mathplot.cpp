@@ -428,10 +428,8 @@ void mpInfoLayer::SetInfoRectangle(mpWindow &w, int width, int height)
     {
       case mpMarginLeftCenter:
       {
-        m_dim.x = (w.GetMarginLeft(true) - m_dim.width) / 2;
-        m_dim.y = (w.GetScreenY() - m_dim.height) / 2;
-        if (m_dim.x < MARGIN_LEFT_OFFSET)
-          m_dim.x = MARGIN_LEFT_OFFSET;
+        m_dim.x = std::max((w.GetMarginLeft(true) - m_dim.width) / 2, MARGIN_LEFT_OFFSET);
+        m_dim.y = (screenHeight - m_dim.height) / 2;
         break;
       }
       case mpMarginTopLeft:
@@ -442,40 +440,40 @@ void mpInfoLayer::SetInfoRectangle(mpWindow &w, int width, int height)
       }
       case mpMarginTopCenter:
       {
-        m_dim.x = (w.GetScreenX() - m_dim.width) / 2;
+        m_dim.x = (screenWidth - m_dim.width) / 2;
         m_dim.y = (w.GetMarginTop(true) - m_dim.height) / 2;
         break;
       }
       case mpMarginTopRight:
       {
-        m_dim.x = w.GetScreenX() - m_dim.width - MARGIN_BOTTOM_OFFSET;
+        m_dim.x = screenWidth - m_dim.width - MARGIN_BOTTOM_OFFSET;
         m_dim.y = (w.GetMarginTop(true) - m_dim.height) / 2;
         break;
       }
       case mpMarginRightCenter:
       {
-        m_dim.x = w.GetScreenX() - (w.GetMarginRight(true) + m_dim.width) / 2;
-        m_dim.y = (w.GetScreenY() - m_dim.height) / 2;
-        if ((m_dim.x + m_dim.width) > w.GetScreenX())
-          m_dim.x = w.GetScreenX() - m_dim.width - MARGIN_RIGHT_OFFSET;
+        m_dim.x = screenWidth - (w.GetMarginRight(true) + m_dim.width) / 2;
+        m_dim.y = (screenHeight - m_dim.height) / 2;
+        if ((m_dim.x + m_dim.width) > screenWidth)
+          m_dim.x = screenWidth - m_dim.width - MARGIN_RIGHT_OFFSET;
         break;
       }
       case mpMarginBottomLeft:
       {
         m_dim.x = MARGIN_LEFT_OFFSET;
-        m_dim.y = w.GetScreenY() - (w.GetMarginBottom(true) + m_dim.height) / 2;
+        m_dim.y = screenHeight - (w.GetMarginBottom(true) + m_dim.height) / 2;
         break;
       }
       case mpMarginBottomCenter:
       {
-        m_dim.x = (w.GetScreenX() - m_dim.width) / 2;
-        m_dim.y = w.GetScreenY() - (w.GetMarginBottom(true) + m_dim.height) / 2;
+        m_dim.x = (screenWidth - m_dim.width) / 2;
+        m_dim.y = screenHeight - (w.GetMarginBottom(true) + m_dim.height) / 2;
         break;
       }
       case mpMarginBottomRight:
       {
-        m_dim.x = w.GetScreenX() - m_dim.width - MARGIN_BOTTOM_OFFSET;
-        m_dim.y = w.GetScreenY() - (w.GetMarginBottom(true) + m_dim.height) / 2;
+        m_dim.x = screenWidth - m_dim.width - MARGIN_BOTTOM_OFFSET;
+        m_dim.y = screenHeight - (w.GetMarginBottom(true) + m_dim.height) / 2;
         break;
       }
       case mpCursor:
@@ -485,8 +483,8 @@ void mpInfoLayer::SetInfoRectangle(mpWindow &w, int width, int height)
     }
     if (m_dim.y < MARGIN_TOP_OFFSET)
       m_dim.y = MARGIN_TOP_OFFSET;
-    else if ((m_dim.y + m_dim.height) > w.GetScreenY())
-      m_dim.y = w.GetScreenY() - m_dim.height - MARGIN_BOTTOM_OFFSET;
+    else if ((m_dim.y + m_dim.height) > screenHeight)
+      m_dim.y = screenHeight - m_dim.height - MARGIN_BOTTOM_OFFSET;
   }
 }
 
@@ -2899,9 +2897,8 @@ mpWindow::mpWindow(wxWindow *parent, wxWindowID id, const wxPoint &pos, const wx
 
 mpWindow::~mpWindow()
 {
-#ifdef ENABLE_MP_CONFIG
-  DeleteAndNull(m_configWindow);
-#endif // ENABLE_MP_CONFIG
+  // Delete Config window if present
+  DeleteConfigWindow();
 
   // Free all the layers:
   DelAllLayers(mpForceDelete, false);
@@ -3035,30 +3032,25 @@ void mpWindow::OnMouseLeftDown(wxMouseEvent &event)
       yAxis->SetVisible(false);
       UpdateAll();
       Fit();
-
-      if ((m_configWindow != NULL) && (m_configWindow->IsVisible()))
-      {
-        m_configWindow->Initialize(mpcpiAxis);
-      }
+      RefreshConfigWindow(mpLAYER_AXIS);
     }
   }
 
+  // Check if we are inside an Info layer. Could be an Info Legend or an Info Coord
   m_movingInfoLayer = IsInsideInfoLayer(m_mouseLClick);
-  if(m_movingInfoLayer)
+  if (m_movingInfoLayer)
   {
     m_movingInfoLayer->UpdateReference();
     UpdateAll();
-  }
 #ifdef MATHPLOT_DO_LOGGING
-  if (m_movingInfoLayer != NULL)
-  {
     wxLogMessage(_T("mpWindow::OnMouseLeftDown() started moving layer %p"), m_movingInfoLayer);
-  }
 #endif
+  }
 
-#ifdef ENABLE_MP_CONFIG
-  if (m_InfoLegend)
+  // We are inside the Info Legend
+  if (m_InfoLegend == m_movingInfoLayer)
   {
+    // Get the series pointed
     int select = m_InfoLegend->GetPointed(m_mouseLClick);
     if (select >= 0)
     {
@@ -3072,11 +3064,8 @@ void mpWindow::OnMouseLeftDown(wxMouseEvent &event)
           CurrentSerie->SetVisible(!CurrentSerie->IsVisible());
           m_InfoLegend->SetNeedUpdate();
           Fit();
-          if ((m_configWindow != NULL) && (m_configWindow->IsVisible()))
-          {
-            m_configWindow->Initialize(mpcpiSeries);
-            m_configWindow->SelectChoiceSerie(select);
-          }
+          RefreshConfigWindow(mpLAYER_PLOT, select);
+          m_movingInfoLayer = nullptr;  // Do not allow moving
         }
       }
       else
@@ -3091,7 +3080,6 @@ void mpWindow::OnMouseLeftDown(wxMouseEvent &event)
       }
     }
   }
-#endif // ENABLE_MP_CONFIG
 
   event.Skip();
 }
@@ -3306,6 +3294,7 @@ void mpWindow::OnMouseLeftRelease(wxMouseEvent &event)
 
   if (m_movingInfoLayer)
   {
+    RefreshConfigWindow(mpLAYER_INFO, m_movingInfoLayer->GetLayerSubType());
     m_movingInfoLayer = nullptr;
     UpdateAll();
   }
@@ -3335,20 +3324,14 @@ void mpWindow::OnMouseLeftRelease(wxMouseEvent &event)
     UpdateAll();
   }
 
-#ifdef ENABLE_MP_CONFIG
   if (m_openConfigWindowPending)
   {
     // Legend was left clicked. Open config when released
     m_openConfigWindowPending = false;
     // Show config window
-    if (m_configWindow == NULL)
-      m_configWindow = new MathPlotConfigDialog(this);
-
-    m_configWindow->Initialize(mpcpiSeries);
-    m_configWindow->SelectChoiceSerie(m_infoLegendSelectedSeries);
-    m_configWindow->Show();
+    RefreshConfigWindow(mpLAYER_PLOT, m_infoLegendSelectedSeries, true);
   }
-#endif
+
   event.Skip();
 }
 
@@ -3863,13 +3846,6 @@ void mpWindow::OnLoadFile(wxCommandEvent &WXUNUSED(event))
   LoadFile();
 }
 
-#ifdef ENABLE_MP_CONFIG
-void mpWindow::OnConfiguration(wxCommandEvent &WXUNUSED(event))
-{
-  OpenConfiguration();
-}
-#endif // ENABLE_MP_CONFIG
-
 void mpWindow::OnCenter(wxCommandEvent &WXUNUSED(event))
 {
   int h, w;
@@ -3989,12 +3965,9 @@ bool mpWindow::AddLayer(mpLayer *layer, bool refreshDisplay, bool refreshConfig)
   // Fit and refresh display
   if (refreshDisplay)
     Fit();
-#ifdef ENABLE_MP_CONFIG
+
   if (refreshConfig)
-    RefreshConfigWindow();
-#else
-  (void) refreshConfig; // For compiler happy
-#endif // ENABLE_MP_CONFIG
+    RefreshConfigWindow(mpLAYER_UNDEF);
 
   return true;
 }
@@ -4078,12 +4051,10 @@ bool mpWindow::DelLayer(mpLayer *layer, mpDeleteAction alsoDeleteObject, bool re
     RefreshLegend();
     if (refreshDisplay)
       UpdateAll();
-#ifdef ENABLE_MP_CONFIG
+
     if (refreshConfig)
-      RefreshConfigWindow();
-#else
-    (void) refreshConfig; // For compiler happy
-#endif // ENABLE_MP_CONFIG
+      RefreshConfigWindow(mpLAYER_UNDEF);
+
     break;
   } // end for mpLayerList
 
@@ -4109,9 +4080,9 @@ void mpWindow::DelAllLayers(mpDeleteAction alsoDeleteObject, bool refreshDisplay
   m_AxisDataYList.clear();
   if (refreshDisplay)
     UpdateAll();
-#ifdef ENABLE_MP_CONFIG
-  DeleteAndNull(m_configWindow);
-#endif // ENABLE_MP_CONFIG
+
+  // Delete Config window if present
+  DeleteConfigWindow();
 }
 
 void mpWindow::DelAllPlot(mpDeleteAction alsoDeleteObject, mpFunctionType func, bool refreshDisplay)
@@ -4135,9 +4106,8 @@ void mpWindow::DelAllPlot(mpDeleteAction alsoDeleteObject, mpFunctionType func, 
   RefreshLegend();
   if (refreshDisplay)
     UpdateAll();
-#ifdef ENABLE_MP_CONFIG
-  RefreshConfigWindow();
-#endif // ENABLE_MP_CONFIG
+
+  RefreshConfigWindow(mpLAYER_PLOT, -1);
 }
 
 void mpWindow::DelAllYAxisAfterID(mpDeleteAction alsoDeleteObject, int yAxisID, bool refreshDisplay)
@@ -4162,9 +4132,8 @@ void mpWindow::DelAllYAxisAfterID(mpDeleteAction alsoDeleteObject, int yAxisID, 
 
   if (refreshDisplay)
     UpdateAll();
-#ifdef ENABLE_MP_CONFIG
-  RefreshConfigWindow();
-#endif // ENABLE_MP_CONFIG
+
+  RefreshConfigWindow(mpLAYER_AXIS);
 }
 
 void mpWindow::OnPaint(wxPaintEvent &WXUNUSED(event))
@@ -5253,10 +5222,9 @@ void mpWindow::SetColourTheme(const wxColour &bgColour, const wxColour &drawColo
 }
 
 #ifdef ENABLE_MP_CONFIG
-void mpWindow::RefreshConfigWindow()
+void mpWindow::OnConfiguration(wxCommandEvent &WXUNUSED(event))
 {
-  if (m_configWindow)
-    m_configWindow->Initialize(mpcpiGeneral);
+  OpenConfigWindow();
 }
 
 MathPlotConfigDialog* mpWindow::GetConfigWindow(bool Create)
@@ -5266,21 +5234,60 @@ MathPlotConfigDialog* mpWindow::GetConfigWindow(bool Create)
 
   return m_configWindow;
 }
+#endif // ENABLE_MP_CONFIG
 
-void mpWindow::OpenConfiguration()
+void mpWindow::RefreshConfigWindow(mpLayerType layerType, int param, bool show)
 {
+#ifdef ENABLE_MP_CONFIG
+  if (m_configWindow == NULL)
+    m_configWindow = new MathPlotConfigDialog(this);
+
+  switch (layerType)
+  {
+    case mpLAYER_AXIS:
+      m_configWindow->Initialize(mpcpiAxis);
+      break;
+    case mpLAYER_PLOT:
+      m_configWindow->Initialize(mpcpiSeries);
+      m_configWindow->SelectChoiceSerie(param);
+      break;
+    case mpLAYER_INFO:
+      if (param == mpiLegend)
+        m_configWindow->Initialize(mpcpiLegend);
+      else if (param == mpiCoords)
+        m_configWindow->Initialize(mpcpiGeneral);
+      break;
+    case mpLAYER_UNDEF:
+    default:
+      m_configWindow->Initialize(mpcpiGeneral);
+  }
+
+  if (show)
+    m_configWindow->Show();
+#else
+  (void) layerType;
+  (void) param;
+  (void) show;
+#endif // ENABLE_MP_CONFIG
+}
+
+void mpWindow::OpenConfigWindow()
+{
+#ifdef ENABLE_MP_CONFIG
   if (m_configWindow == NULL)
     m_configWindow = new MathPlotConfigDialog(this);
 
   m_configWindow->Initialize();
   m_configWindow->Show();
+#endif // ENABLE_MP_CONFIG
 }
 
 void mpWindow::DeleteConfigWindow(void)
 {
+#ifdef ENABLE_MP_CONFIG
   DeleteAndNull(m_configWindow);
-}
 #endif // ENABLE_MP_CONFIG
+}
 
 //-----------------------------------------------------------------------------
 // mpText - provided by Val Greene

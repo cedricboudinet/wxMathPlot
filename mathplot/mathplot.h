@@ -1408,7 +1408,6 @@ class WXDLLIMPEXP_MATHPLOT mpInfoCoords: public mpInfoLayer
     /** Check conditions if info coords shall be shown or not
     @param plotArea Area where info coors is allowed to be rendered
     @param mousePos Position of mouse in plot window
-    @param event Mouse event that can indicate if any button is down
     @return Indicate if shall be shown */
     bool ShouldBeShown(wxRect plotArea, wxPoint mousePos)
     {
@@ -1546,7 +1545,8 @@ class WXDLLIMPEXP_MATHPLOT mpInfoLegend: public mpInfoLayer
 
     /** Draw the content of info legend to plot
      * @param dc the device context where to plot
-     * @param w Parent mpWindow from which to obtain information */
+     * @param w Parent mpWindow from which to obtain information
+     * @param drawToCache */
     void DrawContent(wxDC &dc, mpWindow &w, bool drawToCache);
 
     /** Clear the dragged series rectangle from the plot and restores axis hovering indication
@@ -4418,21 +4418,30 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
     }
 
 #ifdef ENABLE_MP_CONFIG
-    void RefreshConfigWindow();
     /**
      * Give access to the config dialog window
      * @param : Create. Create the dialog if not exist (default false)
      */
     MathPlotConfigDialog* GetConfigWindow(bool Create = false);
+#endif // ENABLE_MP_CONFIG
+
+    /**
+     * Refresh the config window if present
+     * @param layerType the type of layer to see the good page in the window
+     * @param param specific parameter for the page
+     * @param show if true, the window is shown in any cases
+     */
+    void RefreshConfigWindow(mpLayerType layerType, int param = 0, bool show = false);
+
     /**
      * Opens configuration window
      */
-    void OpenConfiguration();
+    void OpenConfigWindow();
+
     /**
      * Deletes configuration window
      */
     void DeleteConfigWindow(void);
-#endif // ENABLE_MP_CONFIG
 
     /**
      * Draw fast moving objects as a overlay on top of the buffered DC,
@@ -4583,9 +4592,9 @@ class WXDLLIMPEXP_MATHPLOT mpWindow: public wxWindow
 
 #ifdef ENABLE_MP_CONFIG
     MathPlotConfigDialog* m_configWindow = NULL;  //!< For the config dialog
-    bool m_openConfigWindowPending = false;
-    int m_infoLegendSelectedSeries;
 #endif // ENABLE_MP_CONFIG
+    bool m_openConfigWindowPending = false;  //!< Only used with config window: indicate if user potentialy want to open the config window
+    int m_infoLegendSelectedSeries;          //!< Only used with config window: the selected series in info legend
 
     mpOnDeleteLayer m_OnDeleteLayer = NULL;          //!< Event when we delete a layer
     mpOnUserMouseAction m_OnUserMouseAction = NULL;  //!< Event when we have a mouse click
