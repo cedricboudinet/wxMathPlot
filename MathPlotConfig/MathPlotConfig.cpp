@@ -956,6 +956,8 @@ MathPlotConfigDialog::MathPlotConfigDialog(wxWindow *parent, wxWindowID WXUNUSED
   BoxSizer2 = new wxBoxSizer(wxHORIZONTAL);
   bApply = new wxButton(this, wxID_ANY, _("Apply"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator);
   BoxSizer2->Add(bApply, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 4);
+  bApplyAndFit = new wxButton(this, wxID_ANY, _("Apply and fit"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator);
+  BoxSizer2->Add(bApplyAndFit, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
   bClose = new wxButton(this, wxID_ANY, _("Close"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator);
   BoxSizer2->Add(bClose, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 4);
   sizerMain->Add(BoxSizer2, 0, wxEXPAND, 4);
@@ -987,6 +989,7 @@ MathPlotConfigDialog::MathPlotConfigDialog(wxWindow *parent, wxWindowID WXUNUSED
   bLinesPenColor->Bind(wxEVT_COMMAND_BUTTON_CLICKED, &MathPlotConfigDialog::OnbColorClick, this);
   nbConfig->Bind(wxEVT_COMMAND_NOTEBOOK_PAGE_CHANGED, &MathPlotConfigDialog::OnnbConfigPageChanged, this);
   bApply->Bind(wxEVT_COMMAND_BUTTON_CLICKED, &MathPlotConfigDialog::OnbApplyClick, this);
+  bApplyAndFit->Bind(wxEVT_COMMAND_BUTTON_CLICKED, &MathPlotConfigDialog::OnbApplyAndFitClick, this);
   bClose->Bind(wxEVT_COMMAND_BUTTON_CLICKED, &MathPlotConfigDialog::OnQuit, this);
   //*)
 
@@ -1472,7 +1475,7 @@ void MathPlotConfigDialog::OnbDelAxisClick(wxCommandEvent& WXUNUSED(event))
     if (wxMessageDialog(this, MESS_AXIS_DELETE, MESS_CONFIRM, wxYES_NO | wxCENTRE).ShowModal() == wxID_YES)
     {
       m_plot->DelLayer(CurrentScale, mpYesDelete, true, false); // Should we also delete the object ?
-      m_plot->Fit();
+      m_plot->UpdateAll();
       CurrentScale = NULL;
       Initialize(mpcpiAxis);
     }
@@ -1606,7 +1609,7 @@ void MathPlotConfigDialog::OnbDelSeriesClick(wxCommandEvent& WXUNUSED(event))
       m_plot->DelLayer(CurrentSerie, mpYesDelete, true, false);
       if (CurrentLegend)
         CurrentLegend->SetNeedUpdate();
-      m_plot->Fit();
+      m_plot->UpdateAll();
       CurrentSerie = NULL;
       edSeriesName->SetValue(_T(""));
       Initialize(mpcpiSeries);
@@ -1756,7 +1759,7 @@ void MathPlotConfigDialog::OnbDelLinesClick(wxCommandEvent& WXUNUSED(event))
     if (wxMessageDialog(this, MESS_LINES_DELETE, MESS_CONFIRM, wxYES_NO | wxCENTRE).ShowModal() == wxID_YES)
     {
       m_plot->DelLayer(CurrentLine, mpYesDelete, true, false);
-      m_plot->Fit();
+      m_plot->UpdateAll();
       CurrentLine = NULL;
       edLinesName->SetValue(_T(""));
       Initialize(mpcpiLines);
@@ -1767,6 +1770,12 @@ void MathPlotConfigDialog::OnbDelLinesClick(wxCommandEvent& WXUNUSED(event))
 void MathPlotConfigDialog::OnbApplyClick(wxCommandEvent& WXUNUSED(event))
 {
   Apply(nbConfig->GetSelection());
+}
+
+void MathPlotConfigDialog::OnbApplyAndFitClick(wxCommandEvent& WXUNUSED(event))
+{
+  Apply(nbConfig->GetSelection());
+  m_plot->Fit();
 }
 
 void MathPlotConfigDialog::Apply(int pageIndex, bool updateFont)
@@ -1812,7 +1821,7 @@ void MathPlotConfigDialog::Apply(int pageIndex, bool updateFont)
 
       m_plot->SetMouseLeftDownAction((mpMouseButtonAction)ChoiceLeftMouseAction->GetSelection());
 
-      m_plot->Fit();
+      m_plot->UpdateAll();
       break;
     }
     case mpcpiLegend: // Legend page
@@ -1925,7 +1934,6 @@ void MathPlotConfigDialog::Apply(int pageIndex, bool updateFont)
         else
         {
           m_plot->UpdateAll();
-          m_plot->Fit();
         }
 
         // Refresh page
@@ -1993,12 +2001,9 @@ void MathPlotConfigDialog::Apply(int pageIndex, bool updateFont)
 
         // We need to fit if we change visibility or Y axis
         if (yAxisChange || (SerieVisibleChange != cbSeriesVisible->GetValue()))
-        {
           SerieVisibleChange = cbSeriesVisible->GetValue();
-          m_plot->Fit();
-        }
-        else
-          m_plot->UpdateAll();
+
+        m_plot->UpdateAll();
       }
       break;
 

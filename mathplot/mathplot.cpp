@@ -2959,6 +2959,8 @@ void mpWindow::InitParameters()
   m_InfoLegend = NULL;
   m_enableScrollBars = false;
   m_mouseLeftDownAction = mpMouseBoxZoom;
+  m_boxZoomActive = false;
+  m_autoFit = true;
 
   m_extraMargin = MP_EXTRA_MARGIN;
   // Set all margins to 50
@@ -3019,8 +3021,11 @@ void mpWindow::OnMouseLeftDown(wxMouseEvent &event)
     {
       mpScaleY* yAxis = (mpScaleY*)GetLayerYAxis(MP_OPTGET(m_mouseYAxisID));
       yAxis->SetVisible(false);
-      UpdateAll();
-      Fit();
+      if(m_autoFit)
+        Fit();
+      else
+        UpdateAll();
+
       RefreshConfigWindow(mpLAYER_AXIS);
     }
   }
@@ -3052,7 +3057,10 @@ void mpWindow::OnMouseLeftDown(wxMouseEvent &event)
         {
           CurrentSerie->SetVisible(!CurrentSerie->IsVisible());
           m_InfoLegend->SetNeedUpdate();
-          Fit();
+          if(m_autoFit)
+            Fit();
+          else
+            UpdateAll();
           RefreshConfigWindow(mpLAYER_PLOT, select);
           m_movingInfoLayer = nullptr;  // Do not allow moving
         }
