@@ -1532,6 +1532,20 @@ class WXDLLIMPEXP_MATHPLOT mpInfoLegend: public mpInfoLayer
       m_needs_update = true;
     }
 
+    /** Set if dragged series shall be shown or hidden
+    @param show Set if shall be shown */
+    void ShowDraggedSeries(bool active)
+    {
+      m_showDraggedSeries = active;
+    }
+
+    /** Get shown status of dragged series
+     @return Indicate if dragged series shall be shown */
+    bool IsDraggedSeriesShown() const
+    {
+      return m_showDraggedSeries;
+    }
+
     /** Checks if mouse is inside legend and if it hovers the header or any of the series
      * If a series is hovered, return its index. If the header is hovered, return HitHeader,
      * otherwise return HitNone
@@ -1551,7 +1565,7 @@ class WXDLLIMPEXP_MATHPLOT mpInfoLegend: public mpInfoLayer
      * @param dc the device context where to plot
      * @param w Parent mpWindow from which to obtain information
      * @param drawToCache */
-    void DrawContent(wxDC &dc, mpWindow &w, bool drawToCache);
+    void DrawContent(wxDC &dc, mpWindow &w);
 
     /** Clear the dragged series rectangle from the plot and restores axis hovering indication
      * @param w the window to plot */
@@ -1570,6 +1584,7 @@ class WXDLLIMPEXP_MATHPLOT mpInfoLegend: public mpInfoLayer
   protected:
     mpLegendStyle m_item_mode;          //!< Visual style used for each legend entry.
     mpLegendDirection m_item_direction; //!< Layout direction used when arranging legend entries.
+    bool m_showDraggedSeries;           //!< Indicate if series that has been gripped with mouse shall be drawn
 
     /** Plot method.
      @param dc the device context where to plot

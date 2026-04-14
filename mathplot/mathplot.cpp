@@ -733,6 +733,7 @@ mpInfoLegend::mpInfoLegend() :
   m_location = mpMarginBottomCenter;
   m_needs_update = true;
   m_headerEnd = 0;
+  m_showDraggedSeries = false;
 }
 
 mpInfoLegend::mpInfoLegend(wxRect rect, const wxBrush &brush, mpLocation location) :
@@ -743,6 +744,7 @@ mpInfoLegend::mpInfoLegend(wxRect rect, const wxBrush &brush, mpLocation locatio
   m_item_direction = mpVertical;
   m_needs_update = true;
   m_headerEnd = 0;
+  m_showDraggedSeries = false;
 }
 
 void mpInfoLegend::UpdateBitmap(wxDC &dc, mpWindow &w)
@@ -894,18 +896,16 @@ void mpInfoLegend::UpdateBitmap(wxDC &dc, mpWindow &w)
 
 void mpInfoLegend::DoPlot(wxDC &dc, mpWindow &w)
 {
-  DrawContent(dc, w, true);
+  // If this infoLegend is being moved, don't render it as a normal layer which is stored to cache bmp.
+  // Instead it will be rendered as a overlay in RenderOverlays(), which is designed for moving objects
+  if(this != w.GetMovingInfoLayer())
+  {
+    DrawContent(dc, w);
+  }
 }
 
-void mpInfoLegend::DrawContent(wxDC &dc, mpWindow &w, bool drawToCache)
+void mpInfoLegend::DrawContent(wxDC &dc, mpWindow &w)
 {
-  if((this == w.GetMovingInfoLayer()) && drawToCache)
-  {
-    // If this infoLegend is being moved, don't render it as a normal layer which is stored do cache bmp.
-    // Instead it will be rendered as a overlay in RenderOverlays(), which is designed for moving objects
-    return;
-  }
-
   if (m_needs_update)
     UpdateBitmap(dc, w);
   else
@@ -3158,8 +3158,9 @@ void mpWindow::OnMouseMove(wxMouseEvent &event)
 
     if (m_InfoLegend && m_InfoLegend->m_selectedSeries)
     {
-      // If a series from the legend has been clicked on, it can be drag and
-      // dropped onto an Y-axis. Request a refresh to draw it
+      // If a series from the legend has been clicked on, it can be drag and dropped
+      // onto an Y-axis. Indicate that it shall be shown and request a refresh to draw it
+      m_InfoLegend->ShowDraggedSeries(true);
       requestRefresh = true;
 
       // Since mouse has started to move, assume user wants to drag a series and not open configuration
@@ -3305,7 +3306,7 @@ void mpWindow::OnMouseLeftRelease(wxMouseEvent &event)
     }
   }
 
-  if (m_InfoLegend && m_InfoLegend->m_selectedSeries)
+  if (m_InfoLegend && m_InfoLegend->IsDraggedSeriesShown())
   {
     // Switch Y-axis of series if it was dropped on a axis
     mpOptional_int yAxisID = IsInsideYAxis(event.GetPosition());
@@ -3314,6 +3315,7 @@ void mpWindow::OnMouseLeftRelease(wxMouseEvent &event)
       m_InfoLegend->m_selectedSeries->SetYAxisID(MP_OPTGET(yAxisID));
     }
     m_InfoLegend->m_selectedSeries = nullptr;
+    m_InfoLegend->ShowDraggedSeries(false);
 
     // Clear the series dragging animation
     m_InfoLegend->RestoreAxisHighlighting(*this);
@@ -3418,9 +3420,10 @@ void mpWindow::OnMouseLeave(wxMouseEvent &event)
   }
 
   // For InfoLegend, we need a full update
-  if (m_InfoLegend && m_InfoLegend->m_selectedSeries)
+  if (m_InfoLegend && m_InfoLegend->IsDraggedSeriesShown())
   {
     m_InfoLegend->m_selectedSeries = nullptr;
+    m_InfoLegend->ShowDraggedSeries(false);
     m_InfoLegend->RestoreAxisHighlighting(*this);
     needUpdateAll = true;
   }
@@ -4236,11 +4239,11 @@ void mpWindow::RenderOverlays(wxDC& dc)
   if (m_InfoCoords && m_InfoCoords->IsShown())
     m_InfoCoords->DrawContent(dc, *this);
 
-  if (m_InfoLegend && m_InfoLegend->m_selectedSeries)
+  if (m_InfoLegend && m_InfoLegend->IsDraggedSeriesShown())
     m_InfoLegend->DrawDraggedSeries(dc, *this);
 
   if(m_InfoLegend && m_movingInfoLayer == m_InfoLegend)
-    m_InfoLegend->DrawContent(dc, *this, false);
+    m_InfoLegend->DrawContent(dc, *this);
 }
 
 void mpWindow::SetMPScrollbars(bool status)
