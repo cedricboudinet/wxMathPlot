@@ -956,22 +956,22 @@ void mpInfoLegend::RestoreAxisHighlighting(mpWindow &w)
   }
 }
 
-int mpInfoLegend::GetPointed(wxPoint eventPoint)
+int mpInfoLegend::GetLegendHitRegion(wxPoint mousePos)
 {
-  if(!Inside(eventPoint))
+  if(!Inside(mousePos))
     return HitNone;
 
   // First check if mouse hovers header
-  wxCoord mouseY = eventPoint.y - m_dim.y;
+  wxCoord mouseY = mousePos.y - m_dim.y;
   if (mouseY >= 0 && mouseY < m_headerEnd)
     return HitHeader;
 
   // Adjust clicked point coordinates for legend bitmap's offset within plot area
   wxCoord side;
   if (m_item_direction == mpVertical)
-    side = eventPoint.y - m_dim.y;
+    side = mousePos.y - m_dim.y;
   else
-    side = eventPoint.x - m_dim.x;
+    side = mousePos.x - m_dim.x;
 
   // Find which series legend we have clicked
   // We only need test against right or bottom side of the rectangle (stored in UpdateBitmap function).
@@ -3041,11 +3041,10 @@ void mpWindow::OnMouseLeftDown(wxMouseEvent &event)
 #endif
   }
 
-  // We are inside the Info Legend
-  if (m_InfoLegend == m_movingInfoLayer)
+  if (m_InfoLegend)
   {
-    // Get the series pointed
-    int select = m_InfoLegend->GetPointed(m_mouseLClick);
+    // Check if mouse is inside info legend and has selected a series
+    int select = m_InfoLegend->GetLegendHitRegion(m_mouseLClick);
     if (select >= 0)
     {
       // If shift is pressed, we just swap visibility of the series
@@ -3234,7 +3233,7 @@ void mpWindow::OnMouseMove(wxMouseEvent &event)
     // Mouse move on legend
     if (m_InfoLegend && m_InfoLegend->IsVisible())
     {
-      int select = m_InfoLegend->GetPointed(m_mousePos);
+      int select = m_InfoLegend->GetLegendHitRegion(m_mousePos);
       if(select == m_InfoLegend->HitHeader)
         SetCursor(wxCursor(wxCURSOR_SIZING));
       else if(select >= 0)
