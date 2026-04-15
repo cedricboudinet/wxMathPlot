@@ -3306,7 +3306,7 @@ void mpWindow::OnMouseLeftRelease(wxMouseEvent &event)
     }
   }
 
-  if (m_InfoLegend && m_InfoLegend->IsDraggedSeriesShown())
+  if (m_InfoLegend && m_InfoLegend->m_selectedSeries)
   {
     // Switch Y-axis of series if it was dropped on a axis
     mpOptional_int yAxisID = IsInsideYAxis(event.GetPosition());
@@ -3420,7 +3420,7 @@ void mpWindow::OnMouseLeave(wxMouseEvent &event)
   }
 
   // For InfoLegend, we need a full update
-  if (m_InfoLegend && m_InfoLegend->IsDraggedSeriesShown())
+  if (m_InfoLegend && m_InfoLegend->m_selectedSeries)
   {
     m_InfoLegend->m_selectedSeries = nullptr;
     m_InfoLegend->ShowDraggedSeries(false);
